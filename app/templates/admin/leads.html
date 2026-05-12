@@ -1,0 +1,436 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Gerenciamento de Leads - AtendBot{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1 class="h3 mb-0 text-gray-800">Gerenciamento de Leads</h1>
+        <p class="text-muted">Leads recebidos via WhatsApp para tratamento e acompanhamento</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Filtros -->
+    <div class="col-lg-12 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-filter me-2"></i>Filtros
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="status_filter" class="form-label">Status</label>
+                        <select class="form-select" id="status_filter" name="status">
+                            <option value="">Todos</option>
+                            <option value="new" {% if request.args.get('status') == 'new' %}selected{% endif %}>Novo</option>
+                            <option value="in_progress" {% if request.args.get('status') == 'in_progress' %}selected{% endif %}>Em Atendimento</option>
+                            <option value="qualified" {% if request.args.get('status') == 'qualified' %}selected{% endif %}>Qualificado</option>
+                            <option value="transferred" {% if request.args.get('status') == 'transferred' %}selected{% endif %}>Transferido</option>
+                            <option value="closed" {% if request.args.get('status') == 'closed' %}selected{% endif %}>Fechado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_filter" class="form-label">Período</label>
+                        <select class="form-select" id="date_filter" name="date_filter">
+                            <option value="">Todos</option>
+                            <option value="today" {% if request.args.get('date_filter') == 'today' %}selected{% endif %}>Hoje</option>
+                            <option value="week" {% if request.args.get('date_filter') == 'week' %}selected{% endif %}>Últimos 7 dias</option>
+                            <option value="month" {% if request.args.get('date_filter') == 'month' %}selected{% endif %}>Últimos 30 dias</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="search" class="form-label">Buscar</label>
+                        <input type="text" class="form-control" id="search" name="search" 
+                               value="{{ request.args.get('search', '') }}" placeholder="Nome ou WhatsApp">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{{ url_for('admin.leads') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Leads -->
+    <div class="col-lg-12">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-users me-2"></i>Leads Recebidos
+                    <span class="badge bg-secondary ms-2">{{ leads|length }}</span>
+                </h6>
+                <div>
+                    <button class="btn btn-sm btn-success" onclick="markSelectedAsQualified()">
+                        <i class="fas fa-check me-1"></i>Marcar como Qualificado
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="transferSelected()">
+                        <i class="fas fa-exchange-alt me-1"></i>Transferir para Humano
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="exportSelected()">
+                        <i class="fas fa-download me-1"></i>Exportar Selecionados
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="40">
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                </th>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>WhatsApp</th>
+                                <th>Status</th>
+                                <th>Qualificação</th>
+                                <th>Data</th>
+                                <th>Última Atividade</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for lead in leads %}
+                                <tr class="{% if lead.status == 'new' %}table-warning{% elif lead.status == 'qualified' %}table-success{% endif %}">
+                                    <td>
+                                        <input type="checkbox" class="lead-checkbox" value="{{ lead.id }}">
+                                    </td>
+                                    <td>{{ lead.id }}</td>
+                                    <td>
+                                        <div>
+                                            <strong>{{ lead.nome or 'Não informado' }}</strong>
+                                            {% if lead.idade %}
+                                                <small class="text-muted">({{ lead.idade }} anos)</small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fab fa-whatsapp text-success me-2"></i>
+                                            <span class="font-monospace">{{ lead.user_id }}</span>
+                                            {% if lead.real_phone %}
+                                                <span class="badge bg-info ms-2" title="Número Real">{{ lead.real_phone }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if lead.status == 'new' %}
+                                            <span class="badge bg-warning">Novo</span>
+                                        {% elif lead.status == 'in_progress' %}
+                                            <span class="badge bg-info">Em Atendimento</span>
+                                        {% elif lead.status == 'qualified' %}
+                                            <span class="badge bg-success">Qualificado</span>
+                                        {% elif lead.status == 'transferred' %}
+                                            <span class="badge bg-primary">Transferido</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Fechado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if lead.situacao_parto and lead.situacao_trabalho %}
+                                            <span class="badge bg-light text-dark" title="Situação Parto: {{ lead.situacao_parto }}">
+                                                {{ 'Grávida' if lead.situacao_parto == 'gravida' else 'Bebê nascido' }}
+                                            </span>
+                                            <span class="badge bg-light text-dark ms-1" title="Trabalho: {{ lead.situacao_trabalho }}">
+                                                {{ lead.situacao_trabalho|upper }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">A qualificar</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ lead.created_at.strftime('%d/%m/%Y %H:%M') if lead.created_at else '-' }}</td>
+                                    <td>{{ lead.updated_at.strftime('%d/%m/%Y %H:%M') if lead.updated_at else '-' }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('admin.view_conversation', conversation_id=lead.id) }}" 
+                                               class="btn btn-outline-primary" title="Ver Conversa">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <button class="btn btn-outline-info btn-sm" onclick="viewLeadDetails({{ lead.id }})" title="Detalhes">
+                                                <i class="fas fa-info-circle"></i>
+                                            </button>
+                                            {% if lead.status == 'new' %}
+                                                <button class="btn btn-outline-success btn-sm" onclick="startAttending({{ lead.id }})" title="Iniciar Atendimento">
+                                                    <i class="fas fa-play"></i>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalhes do Lead -->
+<div class="modal fade" id="leadDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user me-2"></i>Detalhes do Lead
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="leadDetailsContent">
+                <!-- Conteúdo será carregado via AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-primary" id="transferFromModal">
+                    <i class="fas fa-exchange-alt me-1"></i>Transferir para Humano
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh a cada 30 segundos
+    setInterval(() => {
+        window.location.reload();
+    }, 30000);
+});
+
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.lead-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+}
+
+function getSelectedLeads() {
+    const checkboxes = document.querySelectorAll('.lead-checkbox:checked');
+    return Array.from(checkboxes).map(cb => parseInt(cb.value));
+}
+
+async function markSelectedAsQualified() {
+    const selectedIds = getSelectedLeads();
+    if (selectedIds.length === 0) {
+        alert('Selecione pelo menos um lead para marcar como qualificado.');
+        return;
+    }
+
+    if (!confirm(`Marcar ${selectedIds.length} lead(s) como qualificado(s)?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/admin/leads/update-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ids: selectedIds,
+                status: 'qualified'
+            })
+        });
+
+        if (response.ok) {
+            location.reload();
+        } else {
+            alert('Erro ao atualizar status dos leads.');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro de conexão ao atualizar status.');
+    }
+}
+
+async function transferSelected() {
+    const selectedIds = getSelectedLeads();
+    if (selectedIds.length === 0) {
+        alert('Selecione pelo menos um lead para transferir.');
+        return;
+    }
+
+    if (!confirm(`Transferir ${selectedIds.length} lead(s) para atendimento humano?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/admin/leads/transfer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ids: selectedIds
+            })
+        });
+
+        if (response.ok) {
+            alert('Leads transferidos com sucesso!');
+            location.reload();
+        } else {
+            alert('Erro ao transferir leads.');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro de conexão ao transferir leads.');
+    }
+}
+
+async function exportSelected() {
+    const selectedIds = getSelectedLeads();
+    if (selectedIds.length === 0) {
+        alert('Selecione pelo menos um lead para exportar.');
+        return;
+    }
+
+    try {
+        const response = await fetch('/admin/leads/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ids: selectedIds
+            })
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `leads_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } else {
+            alert('Erro ao exportar leads.');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro de conexão ao exportar leads.');
+    }
+}
+
+async function viewLeadDetails(leadId) {
+    try {
+        const response = await fetch(`/admin/leads/${leadId}/details`);
+        const lead = await response.json();
+        
+        if (lead.status === 'success') {
+            const details = lead.data;
+            const content = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Dados Pessoais</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Nome:</strong></td><td>${details.nome || 'Não informado'}</td></tr>
+                            <tr><td><strong>Idade:</strong></td><td>${details.idade || 'Não informada'}</td></tr>
+                            <tr><td><strong>Telefone:</strong></td><td>${details.user_id || 'Não informado'}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Qualificação</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Situação Parto:</strong></td><td>${details.situacao_parto || 'Não informada'}</td></tr>
+                            <tr><td><strong>Trabalho:</strong></td><td>${details.situacao_trabalho || 'Não informado'}</td></tr>
+                            <tr><td><strong>Tentativa Anterior:</strong></td><td>${details.tentativa_anterior || 'Não'}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6 class="text-primary">Todos os Dados Coletados</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                ${Object.entries(details.user_data || {}).map(([key, value]) => 
+                                    `<tr><td><strong>${key}:</strong></td><td>${value}</td></tr>`
+                                ).join('')}
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('leadDetailsContent').innerHTML = content;
+            const modal = new bootstrap.Modal(document.getElementById('leadDetailsModal'));
+            modal.show();
+            
+            // Configurar botão de transferência
+            document.getElementById('transferFromModal').onclick = () => transferToHuman([leadId]);
+        } else {
+            alert('Erro ao carregar detalhes do lead.');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro de conexão ao carregar detalhes.');
+    }
+}
+
+async function startAttending(leadId) {
+    if (!confirm('Iniciar atendimento deste lead? Isso mudará o status para "Em Atendimento".')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/admin/leads/update-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ids: [leadId],
+                status: 'in_progress'
+            })
+        });
+
+        if (response.ok) {
+            // Redirecionar para a conversa
+            window.location.href = `/admin/conversas/${leadId}`;
+        } else {
+            alert('Erro ao iniciar atendimento.');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro de conexão ao iniciar atendimento.');
+    }
+}
+
+async function transferToHuman(leadIds) {
+    // Implementar lógica de transferência (pode ser para sistema externo)
+    const notes = prompt('Observações para a equipe humana (opcional):');
+    
+    try {
+        const response = await fetch('/admin/leads/transfer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ids: leadIds,
+                notes: notes || '',
+                transferred_to: 'human_team',
+                transferred_at: new Date().toISOString()
+            })
+        });
+
+        if (response.ok) {
+            alert('Leads transferidos com sucesso para a equipe humana!');
+            location.reload();
+        } else {
+            alert('Erro ao transferir leads.');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro de conexão ao transferir leads.');
+    }
+}
+</script>
+{% endblock %}

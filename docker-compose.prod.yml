@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: marina_bot_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DB}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - marina_network
+    # Em producao, nao expoe a porta do MySQL externamente por seguranca
+    # ports:
+    #   - "3306:3306"
+
+  wppconnect:
+    build:
+      context: .
+      dockerfile: Dockerfile.wppconnect
+    image: marina_wppconnect:local
+    container_name: marina_wppconnect
+    restart: always
+    environment:
+      - SECRET_KEY=${WPP_SECRET_KEY:-marina_bot_secret}
+    volumes:
+      - wpp_tokens:/home/user/wppconnect-server/tokens
+    networks:
+      - marina_network
+    # Em producao, nao expoe a porta externamente (acesso apenas interno via rede Docker)
+    # ports:
+    #   - "21465:21465"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: marina_bot_app
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - FLASK_APP=app
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MYSQL_HOST=db
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DB=${MYSQL_DB}
+      - MYSQL_PORT=3306
+      - WHATSAPP_SESSION=${WHATSAPP_SESSION:-marina_bot_session}
+      - WPP_SERVER_URL=http://wppconnect:21465
+      - WPP_SECRET_KEY=${WPP_SECRET_KEY:-marina_bot_secret}
+      - APP_URL=${APP_URL}
+    depends_on:
+      - db
+      - wppconnect
+    networks:
+      - marina_network
+    # Em producao, use um proxy reverso (nginx/traefik) apontando para porta 5000
+    ports:
+      - "5000:5000"
+
+volumes:
+  db_data:
+  wpp_tokens:
+
+networks:
+  marina_network:
+    driver: bridge

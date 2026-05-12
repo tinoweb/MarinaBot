@@ -1,0 +1,227 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Conversas - AtendBot{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1 class="h3 mb-0 text-gray-800">Conversas</h1>
+        <p class="text-muted">Gerenciamento de conversas com clientes</p>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">Todas as Conversas</h6>
+        <div>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary active">Todas</button>
+                <button type="button" class="btn btn-outline-primary">Ativas</button>
+                <button type="button" class="btn btn-outline-primary">Concluídas</button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered" id="conversationsTable" width="100%" cellspacing="0">                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>WhatsApp</th>
+                        <th>Nome</th>
+                        <th>Última Mensagem</th>
+                        <th>Não Lidas</th>
+                        <th>Atividade</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="conversationsBody">
+                    {% if conversations %}
+                        {% for conversation in conversations %}
+                            <tr data-id="{{ conversation.id }}" class="{{ 'table-warning' if conversation.unread_count > 0 else '' }}">
+                                <td>{{ conversation.id }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fab fa-whatsapp text-success me-2"></i>
+                                        <span class="font-monospace">{{ conversation.user_id }}</span>
+                                        {% if conversation.user_data and conversation.user_data.real_phone %}
+                                            <span class="badge bg-info ms-2" title="Número Real">{{ conversation.user_data.real_phone }}</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if conversation.user_data and conversation.user_data.nome %}
+                                        <strong>{{ conversation.user_data.nome }}</strong>
+                                    {% else %}
+                                        <span class="text-muted">Não informado</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-truncate" style="max-width: 200px;">
+                                    <small class="text-muted last-msg-text">
+                                        {{ conversation.last_message if conversation.last_message else 'Nenhuma mensagem' }}
+                                    </small>
+                                </td>
+                                <td>
+                                    {% if conversation.unread_count > 0 %}
+                                        <span class="badge bg-danger rounded-pill unread-badge">{{ conversation.unread_count }}</span>
+                                    {% else %}
+                                        <span class="text-muted">0</span>
+                                    {% endif %}
+                                </td>
+                                <td class="updated-at-text">{{ conversation.updated_at.strftime('%H:%M') if conversation.updated_at else '-' }}</td>
+                                <td>
+                                    {% if conversation.status == 'active' %}
+                                        <span class="badge bg-primary">Ativa</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Concluída</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('admin.view_conversation', conversation_id=conversation.id) }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-eye"></i> Chat
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center">Nenhuma conversa encontrada</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Armazena conversas existentes para detectar novas
+        let existingConversations = new Set();
+        document.querySelectorAll('tr[data-id]').forEach(row => {
+            existingConversations.add(row.dataset.id);
+        });
+
+        // Função para mostrar notificação toast
+        function showNotification(title, message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer') || createToastContainer();
+            
+            const toastId = 'toast-' + Date.now();
+            const toastHtml = `
+                <div id="${toastId}" class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header">
+                        <i class="fas fa-bell me-2 text-${type === 'success' ? 'success' : 'primary'}"></i>
+                        <strong class="me-auto">${title}</strong>
+                        <small>Agora</small>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                </div>
+            `;
+            
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            
+            // Remove após 5 segundos
+            setTimeout(() => {
+                const toast = document.getElementById(toastId);
+                if (toast) {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 500);
+                }
+            }, 5000);
+        }
+
+        // Cria container de toasts se não existir
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            container.style.zIndex = '9999';
+            document.body.appendChild(container);
+            return container;
+        }
+
+        // Reproduz som de notificação
+        function playNotificationSound() {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQYACAD+/f4=');
+            audio.volume = 0.3;
+            audio.play().catch(e => console.log('Não foi possível reproduzir som:', e));
+        }
+
+        // Polling para atualizações na lista
+        async function checkUpdates() {
+            try {
+                const response = await fetch('/admin/conversas/updates');
+                const data = await response.json();
+                if (data.status === 'success') {
+                    let hasNewConversation = false;
+                    let hasNewMessage = false;
+
+                    data.updates.forEach(update => {
+                        const row = document.querySelector(`tr[data-id="${update.id}"]`);
+                        
+                        // Detecta nova conversa
+                        if (!existingConversations.has(String(update.id))) {
+                            hasNewConversation = true;
+                            existingConversations.add(String(update.id));
+                        }
+                        
+                        // Detecta novas mensagens não lidas
+                        if (update.unread_count > 0) {
+                            hasNewMessage = true;
+                        }
+
+                        if (row) {
+                            // Atualiza coluna de não lidas (5ª coluna)
+                            const unreadCell = row.querySelector('td:nth-child(5)');
+                            if (unreadCell) {
+                                if (update.unread_count > 0) {
+                                    unreadCell.innerHTML = `<span class="badge bg-danger rounded-pill unread-badge">${update.unread_count}</span>`;
+                                } else {
+                                    unreadCell.innerHTML = '<span class="text-muted">0</span>';
+                                }
+                            }
+                            
+                            // Atualiza destaque na linha
+                            if (update.unread_count > 0) {
+                                row.classList.add('table-warning');
+                            } else {
+                                row.classList.remove('table-warning');
+                            }
+                            
+                            // Atualiza última mensagem e hora
+                            const msgText = row.querySelector('.last-msg-text');
+                            if (msgText) msgText.innerText = update.last_message || 'Nenhuma mensagem';
+                            
+                            const timeText = row.querySelector('.updated-at-text');
+                            if (timeText) timeText.innerText = update.updated_at;
+                        }
+                    });
+
+                    // Mostra notificação se houver nova conversa
+                    if (hasNewConversation) {
+                        showNotification('Nova Conversa!', 'Um cliente iniciou uma nova conversa.', 'success');
+                        playNotificationSound();
+                    }
+                    // Mostra notificação se houver novas mensagens (mas não nova conversa)
+                    else if (hasNewMessage) {
+                        showNotification('Nova Mensagem!', 'Você recebeu novas mensagens de clientes.', 'info');
+                        playNotificationSound();
+                    }
+                }
+            } catch (err) {
+                console.error("Erro ao buscar atualizações:", err);
+            }
+        }
+
+        // Verifica a cada 5 segundos (mais rápido para notificações)
+        setInterval(checkUpdates, 5000);
+    });
+</script>
+{% endblock %}

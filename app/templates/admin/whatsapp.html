@@ -1,0 +1,376 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}WhatsApp - AtendBot{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-badge { font-size: 0.85rem; padding: 0.4em 0.8em; border-radius: 20px; }
+    .qr-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 260px;
+        background: rgba(255,255,255,0.03);
+        border: 2px dashed #30363d;
+        border-radius: 12px;
+    }
+    .qr-wrapper img { border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.12); }
+    .qr-placeholder { text-align: center; color: #b7b9cc; }
+    .qr-placeholder i { font-size: 4rem; margin-bottom: 0.5rem; }
+    .step-badge {
+        width: 28px; height: 28px;
+        background: #4e73df;
+        color: #fff;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+    }
+    .pulse { animation: pulse 1.5s infinite; }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+    }
+    #refresh-countdown { font-size: 0.75rem; color: #858796; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12 d-flex align-items-center justify-content-between">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="fab fa-whatsapp text-success me-2"></i>Conexão WhatsApp
+            </h1>
+            <p class="text-muted mb-0">Gerencie a sessão do bot via WPP Connect Server</p>
+        </div>
+        <a href="{{ url_for('admin.settings') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i>Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+
+    <!-- Coluna Principal: Status + QR Code -->
+    <div class="col-lg-7 mb-4">
+
+        <!-- Card Status -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-signal me-2"></i>Status da Conexão
+                </h6>
+                <span id="db-status-badge" class="status-badge
+                    {% if config.status == 'connected' %}bg-success text-white
+                    {% elif config.status in ('starting', 'token_generated') %}bg-warning text-dark
+                    {% else %}bg-secondary text-white{% endif %}">
+                    {% if config.status == 'connected' %}
+                        <i class="fas fa-circle me-1" style="font-size:0.6rem"></i>Conectado
+                    {% elif config.status == 'starting' %}
+                        <i class="fas fa-circle pulse me-1" style="font-size:0.6rem"></i>Aguardando QR Code
+                    {% elif config.status == 'token_generated' %}
+                        <i class="fas fa-circle pulse me-1" style="font-size:0.6rem"></i>Token Gerado
+                    {% else %}
+                        <i class="fas fa-circle me-1" style="font-size:0.6rem"></i>Desconectado
+                    {% endif %}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="text-muted small mb-1">Sessão</div>
+                        <div class="fw-semibold">
+                            <i class="fas fa-tag me-1 text-primary"></i>{{ session_name }}
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted small mb-1">Número Conectado</div>
+                        <div id="phone-display" class="fw-semibold">
+                            {% if config.phone_number %}
+                                <i class="fab fa-whatsapp me-1 text-success"></i>{{ config.phone_number }}
+                            {% else %}
+                                <span class="text-muted">Nenhum número</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted small mb-1">Servidor WPP Connect</div>
+                        <div class="fw-semibold">
+                            {% if server_status.status == 'unreachable' %}
+                                <span class="text-danger"><i class="fas fa-times-circle me-1"></i>Indisponível</span>
+                            {% else %}
+                                <span class="text-success"><i class="fas fa-check-circle me-1"></i>Online</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted small mb-1">Porta API</div>
+                        <div class="fw-semibold">
+                            <i class="fas fa-plug me-1 text-info"></i>:21465
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card QR Code -->
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-qrcode me-2"></i>QR Code
+                </h6>
+                <span id="refresh-countdown"></span>
+            </div>
+            <div class="card-body text-center">
+                <div class="qr-wrapper mb-3" id="qr-container">
+                    {% if config.status == 'connected' %}
+                        <div class="qr-placeholder">
+                            <i class="fas fa-check-circle text-success" style="font-size:4rem"></i>
+                            <p class="mt-2 text-success fw-semibold">WhatsApp Conectado!</p>
+                            <p class="text-muted small">Número: <strong id="connected-phone">{{ config.phone_number or '-' }}</strong></p>
+                        </div>
+                    {% elif config.status in ('starting', 'token_generated') %}
+                        <div class="qr-placeholder">
+                            <i class="fas fa-spinner fa-spin" style="font-size:3rem; color:#4e73df"></i>
+                            <p class="mt-2 text-primary">Aguardando QR Code...</p>
+                        </div>
+                    {% else %}
+                        <div class="qr-placeholder">
+                            <i class="fab fa-whatsapp"></i>
+                            <p class="mt-2">Inicie a conexão para gerar o QR Code</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                {% if config.status in ('starting', 'token_generated') %}
+                <p class="text-muted small">
+                    O QR Code será exibido automaticamente. Atualizando a cada <strong>5s</strong>.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Coluna Lateral: Ações + Instruções -->
+    <div class="col-lg-5 mb-4">
+
+        <!-- Iniciar Conexão -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-link me-2"></i>Iniciar Conexão
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('whatsapp.connect') }}">
+                    <div class="mb-3">
+                        <label for="session_name" class="form-label">Nome da Sessão</label>
+                        <input type="text" class="form-control" id="session_name" name="session_name"
+                               value="{{ session_name }}" placeholder="Ex: marina_bot_session">
+                        <div class="form-text">Identificador único para esta conexão WhatsApp.</div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success"
+                            {% if config.status == 'connected' %}disabled{% endif %}>
+                            <i class="fab fa-whatsapp me-2"></i>
+                            {% if config.status == 'connected' %}Já Conectado{% else %}Gerar QR Code e Conectar{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Ações de Desconexão -->
+        {% if config.status in ('connected', 'starting', 'token_generated') %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-warning">
+                    <i class="fas fa-plug me-2"></i>Gerenciar Sessão
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <form method="POST" action="{{ url_for('whatsapp.refresh_webhook') }}">
+                        <input type="hidden" name="session_name" value="{{ session_name }}">
+                        <button type="submit" class="btn btn-outline-info w-100 mb-1">
+                            <i class="fas fa-sync me-2"></i>Reiniciar Webhook
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('whatsapp.restart_session') }}">
+                        <input type="hidden" name="session_name" value="{{ session_name }}">
+                        <button type="submit" class="btn btn-outline-primary w-100 mb-1">
+                            <i class="fas fa-redo me-2"></i>Reiniciar Sessão com Webhook
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('whatsapp.disconnect') }}">
+                        <input type="hidden" name="session_name" value="{{ session_name }}">
+                        <button type="submit" class="btn btn-outline-warning w-100">
+                            <i class="fas fa-pause me-2"></i>Pausar Sessão
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('whatsapp.logout_device') }}">
+                        <input type="hidden" name="session_name" value="{{ session_name }}">
+                        <button type="submit" class="btn btn-outline-danger w-100 confirm-danger">
+                            <i class="fas fa-sign-out-alt me-2"></i>Desvincular Dispositivo
+                        </button>
+                    </form>
+                </div>
+                <div class="form-text mt-2 text-info">
+                    <i class="fas fa-info-circle me-1"></i><strong>Reiniciar Webhook</strong> resolve problemas de mensagens não chegando no sistema.
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Instruções -->
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-circle-info me-2"></i>Como Conectar
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-start mb-3">
+                    <span class="step-badge me-3 mt-1">1</span>
+                    <div>
+                        <div class="fw-semibold">Clique em "Gerar QR Code e Conectar"</div>
+                        <div class="text-muted small">O servidor WPP Connect abrirá uma sessão do WhatsApp Web.</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-start mb-3">
+                    <span class="step-badge me-3 mt-1">2</span>
+                    <div>
+                        <div class="fw-semibold">Aguarde o QR Code aparecer</div>
+                        <div class="text-muted small">Pode levar alguns segundos. A página atualiza automaticamente.</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-start mb-3">
+                    <span class="step-badge me-3 mt-1">3</span>
+                    <div>
+                        <div class="fw-semibold">Abra o WhatsApp no celular</div>
+                        <div class="text-muted small">Vá em <strong>Dispositivos Conectados → Conectar dispositivo</strong>.</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-start">
+                    <span class="step-badge me-3 mt-1">4</span>
+                    <div>
+                        <div class="fw-semibold">Escaneie o QR Code</div>
+                        <div class="text-muted small">Pronto! O bot começará a responder mensagens automaticamente.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var dbStatus = "{{ config.status or 'disconnected' }}";
+    var sessionName = "{{ session_name }}";
+    var pollInterval = null;
+    var countdown = 5;
+
+    function updateCountdown() {
+        var el = document.getElementById('refresh-countdown');
+        if (el) el.textContent = 'Atualizando em ' + countdown + 's...';
+        countdown--;
+        if (countdown < 0) countdown = 5;
+    }
+
+    function fetchQrCode() {
+        fetch('/admin/whatsapp/qrcode?session=' + encodeURIComponent(sessionName))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var container = document.getElementById('qr-container');
+                if (!container) return;
+                if (data.qrcode) {
+                    container.innerHTML =
+                        '<img src="' + data.qrcode + '" alt="QR Code WhatsApp" width="220" height="220">';
+                }
+            })
+            .catch(function () {});
+    }
+
+    function fetchStatus() {
+        fetch('/admin/whatsapp/status?session=' + encodeURIComponent(sessionName))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var newStatus = data.db_status;
+                var serverStatus = data.server && data.server.status;
+                var badge = document.getElementById('db-status-badge');
+                var phoneEl = document.getElementById('phone-display');
+
+                if (newStatus === 'connected' || serverStatus === 'CONNECTED') {
+                    stopPolling();
+                    if (badge) {
+                        badge.className = 'status-badge bg-success text-white';
+                        badge.innerHTML = '<i class="fas fa-circle me-1" style="font-size:0.6rem"></i>Conectado';
+                    }
+                    var container = document.getElementById('qr-container');
+                    if (container) {
+                        container.innerHTML =
+                            '<div class="qr-placeholder">' +
+                            '<i class="fas fa-check-circle text-success" style="font-size:4rem"></i>' +
+                            '<p class="mt-2 text-success fw-semibold">WhatsApp Conectado!</p>' +
+                            '<p class="text-muted small">Número: <strong>' + (data.phone || '-') + '</strong></p>' +
+                            '</div>';
+                    }
+                    if (phoneEl) {
+                        phoneEl.innerHTML = '<i class="fab fa-whatsapp me-1 text-success"></i>' + (data.phone || '-');
+                    }
+                    var countdown_el = document.getElementById('refresh-countdown');
+                    if (countdown_el) countdown_el.textContent = '';
+                } else if (newStatus === 'disconnected') {
+                    stopPolling();
+                    if (badge) {
+                        badge.className = 'status-badge bg-secondary text-white';
+                        badge.innerHTML = '<i class="fas fa-circle me-1" style="font-size:0.6rem"></i>Desconectado';
+                    }
+                }
+            })
+            .catch(function () {});
+    }
+
+    function startPolling() {
+        if (pollInterval) return;
+        fetchQrCode();
+        fetchStatus();
+        pollInterval = setInterval(function () {
+            updateCountdown();
+            fetchQrCode();
+            fetchStatus();
+        }, 5000);
+        setInterval(updateCountdown, 1000);
+    }
+
+    function stopPolling() {
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
+        var el = document.getElementById('refresh-countdown');
+        if (el) el.textContent = '';
+    }
+
+    if (dbStatus === 'starting' || dbStatus === 'token_generated') {
+        startPolling();
+    }
+
+    document.querySelectorAll('.confirm-danger').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            if (!confirm('Tem certeza? Esta ação desvinculará o dispositivo e exigirá novo QR Code.')) {
+                e.preventDefault();
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <!-- WhatsApp Chat Bubbles -->
+  
+  <!-- Left Chat Bubble (Received) -->
+  <g>
+    <path d="M50,150 L50,220 C50,231 59,240 70,240 L180,240 L200,270 L220,240 L230,240 C241,240 250,231 250,220 L250,150 C250,139 241,130 230,130 L70,130 C59,130 50,139 50,150 Z" 
+          fill="#f1f1f1" stroke="#e1e1e1" stroke-width="2" />
+    
+    <!-- Text Lines -->
+    <rect x="70" y="160" width="160" height="10" rx="5" fill="#6c757d" />
+    <rect x="70" y="180" width="120" height="10" rx="5" fill="#6c757d" />
+    <rect x="70" y="200" width="140" height="10" rx="5" fill="#6c757d" />
+  </g>
+  
+  <!-- Right Chat Bubble (Sent) -->
+  <g>
+    <path d="M250,300 L250,370 C250,381 259,390 270,390 L380,390 L400,420 L420,390 L430,390 C441,390 450,381 450,370 L450,300 C450,289 441,280 430,280 L270,280 C259,280 250,289 250,300 Z" 
+          fill="#25D366" stroke="#128C7E" stroke-width="2" />
+    
+    <!-- Text Lines -->
+    <rect x="270" y="310" width="160" height="10" rx="5" fill="#ffffff" />
+    <rect x="270" y="330" width="120" height="10" rx="5" fill="#ffffff" />
+    <rect x="270" y="350" width="140" height="10" rx="5" fill="#ffffff" />
+  </g>
+  
+  <!-- Phone Outline -->
+  <g>
+    <rect x="150" y="80" width="200" height="340" rx="20" fill="none" stroke="#0d6efd" stroke-width="5" />
+    <rect x="170" y="100" width="160" height="280" rx="5" fill="#f8f9fa" stroke="#e1e1e1" stroke-width="2" />
+    <circle cx="250" cy="400" r="15" fill="#f8f9fa" stroke="#0d6efd" stroke-width="2" />
+  </g>
+  
+  <!-- Legal Icons -->
+  <g fill="#0d6efd">
+    <circle cx="190" y="190" r="10" />
+    <circle cx="390" y="340" r="10" />
+  </g>
+</svg>

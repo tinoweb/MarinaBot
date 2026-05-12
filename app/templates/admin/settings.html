@@ -1,0 +1,206 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Configurações - AtendBot{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1 class="h3 mb-0 text-gray-800">Configurações</h1>
+        <p class="text-muted">Configurações do sistema e do assistente virtual</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <form method="post" action="{{ url_for('admin.settings') }}">
+
+            <!-- Configurações do Bot -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-robot me-2"></i>Configurações do Assistente
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="bot_name" class="form-label">Nome do Assistente</label>
+                        <input type="text" class="form-control" id="bot_name" name="bot_name"
+                               value="{{ bot_name or 'AtendBot' }}" placeholder="Ex: AtendBot">
+                        <div class="form-text">Nome exibido nas mensagens enviadas pelo assistente.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="welcome_message" class="form-label">Mensagem de Boas-vindas</label>
+                        <textarea class="form-control" id="welcome_message" name="welcome_message" rows="3">{{ welcome_message or 'Olá! Sou o AtendBot, seu assistente virtual. Como posso te ajudar hoje?' }}</textarea>
+                        <div class="form-text">Mensagem enviada ao iniciar uma nova conversa.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="system_prompt" class="form-label">Prompt do Sistema (Personalidade)</label>
+                        <textarea class="form-control" id="system_prompt" name="system_prompt" rows="4"
+                                  placeholder="Descreva o comportamento e especialidade do assistente...">{{ system_prompt or '' }}</textarea>
+                        <div class="form-text">Define a personalidade e contexto de atuação do assistente.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="ai_model" class="form-label">Modelo de IA</label>
+                        <select class="form-select" id="ai_model" name="ai_model">
+                            <option value="gpt-3.5-turbo" {{ 'selected' if ai_model == 'gpt-3.5-turbo' else '' }}>GPT-3.5 Turbo (Recomendado)</option>
+                            <option value="gpt-4o-mini" {{ 'selected' if ai_model == 'gpt-4o-mini' else '' }}>GPT-4o Mini</option>
+                            <option value="gpt-4o" {{ 'selected' if ai_model == 'gpt-4o' else '' }}>GPT-4o</option>
+                        </select>
+                        <div class="form-text">Modelo de IA utilizado para gerar respostas.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="temperature" class="form-label">
+                            Temperatura (Criatividade): <span id="temperature_value">{{ temperature or '0.7' }}</span>
+                        </label>
+                        <input type="range" class="form-range" id="temperature" name="temperature"
+                               min="0" max="1" step="0.1" value="{{ temperature or '0.7' }}">
+                        <div class="form-text">Valores altos = mais criativo. Valores baixos = mais preciso.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configurações do WhatsApp -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fab fa-whatsapp me-2"></i>Configurações do WhatsApp
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="whatsapp_number" class="form-label">Número do WhatsApp</label>
+                        <input type="text" class="form-control" id="whatsapp_number" name="whatsapp_number"
+                               placeholder="+55 (xx) xxxxx-xxxx">
+                        <div class="form-text">Número associado à sessão do WhatsApp (somente leitura).</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="session_name" class="form-label">Nome da Sessão</label>
+                        <input type="text" class="form-control" id="session_name" name="session_name"
+                               placeholder="Ex: atendbot_session">
+                        <div class="form-text">Identificador único da sessão WPP-Whatsapp.</div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label">Status da Conexão</label>
+                        <div>
+                            <span class="badge bg-success">
+                                <i class="fas fa-circle me-1" style="font-size:0.6rem"></i>Conectado
+                            </span>
+                        </div>
+                        <div class="form-text mt-1">Para reconectar, reinicie o serviço e escaneie o QR Code.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configurações da OpenAI -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-key me-2"></i>Configurações da OpenAI
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-0">
+                        <label for="openai_api_key" class="form-label">API Key</label>
+                        <input type="password" class="form-control" id="openai_api_key" name="openai_api_key"
+                               placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                        <div class="form-text">
+                            Chave da API OpenAI. Configure via variável de ambiente
+                            <code style="color:#a78bfa;">OPENAI_API_KEY</code> no arquivo <code style="color:#a78bfa;">.env</code>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mb-4">
+                <button type="reset" class="btn btn-outline-secondary">Restaurar</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-floppy-disk me-1"></i>Salvar Configurações
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Status do Sistema -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-signal me-2"></i>Status do Sistema
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="form-label">Bot WhatsApp</div>
+                    <span class="badge bg-success">Online</span>
+                </div>
+                <div class="mb-3">
+                    <div class="form-label">API de IA</div>
+                    <span class="badge bg-success">Operacional</span>
+                </div>
+                <div class="mb-3">
+                    <div class="form-label">Banco de Dados</div>
+                    <span class="badge bg-success">Conectado</span>
+                </div>
+                <div class="mb-3">
+                    <div class="form-label">Versão</div>
+                    <span class="text-muted" style="font-size:0.85rem;">AtendBot v2.0.0</span>
+                </div>
+                <div class="d-grid">
+                    <button class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-rotate me-1"></i>Verificar Status
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ações Rápidas -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-bolt me-2"></i>Ações Rápidas
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-broom me-1"></i>Limpar Cache
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-rotate-right me-1"></i>Reiniciar Serviço
+                    </button>
+                    <button class="btn btn-danger btn-sm confirm-danger">
+                        <i class="fas fa-trash me-1"></i>Limpar Todas as Conversas
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const temperatureSlider = document.getElementById('temperature');
+        const temperatureValue = document.getElementById('temperature_value');
+
+        temperatureSlider.addEventListener('input', function() {
+            temperatureValue.textContent = this.value;
+        });
+
+        document.querySelectorAll('.confirm-danger').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                if (!confirm('Esta ação é irreversível. Confirma?')) {
+                    e.preventDefault();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

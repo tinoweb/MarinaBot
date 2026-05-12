@@ -1,0 +1,276 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Dashboard - AtendBot{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
+        <p class="text-muted">Visão geral do sistema</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Total de Conversas -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Total de Conversas</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">215</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-comments fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conversas Ativas -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Conversas Ativas</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">24</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-user-clock fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conversas Concluídas -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                            Conversas Concluídas</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">191</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Taxa de Conversão -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            Taxa de Conversão</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">65%</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Gráfico de Conversas -->
+    <div class="col-xl-8 col-lg-7">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Conversas nos Últimos 7 Dias</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-area">
+                    <canvas id="conversationsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico de Distribuição -->
+    <div class="col-xl-4 col-lg-5">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Distribuição de Status</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-pie pt-4 pb-2">
+                    <canvas id="statusChart"></canvas>
+                </div>
+                <div class="mt-4 text-center small">
+                    <span class="mr-2">
+                        <i class="fas fa-circle text-success"></i> Concluídas
+                    </span>
+                    <span class="mr-2">
+                        <i class="fas fa-circle text-primary"></i> Em Andamento
+                    </span>
+                    <span class="mr-2">
+                        <i class="fas fa-circle text-warning"></i> Abandonadas
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Últimas Conversas -->
+    <div class="col-lg-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Conversas Recentes</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Usuário</th>
+                                <th>Início</th>
+                                <th>Última Atividade</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>whatsapp:+5511999999999</td>
+                                <td>02/05/2026 14:23</td>
+                                <td>02/05/2026 14:45</td>
+                                <td><span class="badge bg-success">Concluída</span></td>
+                                <td>
+                                    <a href="{{ url_for('admin.view_conversation', conversation_id=1) }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td>whatsapp:+5511888888888</td>
+                                <td>02/05/2026 15:10</td>
+                                <td>02/05/2026 15:30</td>
+                                <td><span class="badge bg-primary">Em Andamento</span></td>
+                                <td>
+                                    <a href="{{ url_for('admin.view_conversation', conversation_id=2) }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>3</td>
+                                <td>whatsapp:+5511777777777</td>
+                                <td>02/05/2026 16:05</td>
+                                <td>02/05/2026 16:15</td>
+                                <td><span class="badge bg-warning">Abandonada</span></td>
+                                <td>
+                                    <a href="{{ url_for('admin.view_conversation', conversation_id=3) }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('admin.conversations') }}" class="btn btn-primary">Ver Todas as Conversas</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Gráfico de Conversas
+    var ctx = document.getElementById("conversationsChart");
+    var myLineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ["24/04", "25/04", "26/04", "27/04", "28/04", "29/04", "30/04", "01/05"],
+            datasets: [{
+                label: "Conversas",
+                lineTension: 0.3,
+                backgroundColor: "rgba(78, 115, 223, 0.05)",
+                borderColor: "rgba(78, 115, 223, 1)",
+                pointRadius: 3,
+                pointBackgroundColor: "rgba(78, 115, 223, 1)",
+                pointBorderColor: "rgba(78, 115, 223, 1)",
+                pointHoverRadius: 3,
+                pointHoverBackgroundColor: "rgba(78, 115, 223, 1)",
+                pointHoverBorderColor: "rgba(78, 115, 223, 1)",
+                pointHitRadius: 10,
+                pointBorderWidth: 2,
+                data: [15, 25, 20, 30, 25, 40, 35, 25],
+            }],
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1c2128',
+                    titleColor: '#e6edf3',
+                    bodyColor: '#8b949e',
+                    borderColor: '#30363d',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#8b949e', maxTicksLimit: 7 }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(48,54,61,0.5)', drawBorder: false },
+                    ticks: { color: '#8b949e', maxTicksLimit: 5 }
+                }
+            }
+        }
+    });
+
+    // Gráfico de Status
+    var ctx2 = document.getElementById("statusChart");
+    var myPieChart = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+            labels: ["Concluídas", "Em Andamento", "Abandonadas"],
+            datasets: [{
+                data: [65, 20, 15],
+                backgroundColor: ['#1cc88a', '#4e73df', '#f6c23e'],
+                hoverBackgroundColor: ['#17a673', '#2e59d9', '#dda20a'],
+                hoverBorderColor: "rgba(234, 236, 244, 1)",
+            }],
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1c2128',
+                    titleColor: '#e6edf3',
+                    bodyColor: '#8b949e',
+                    borderColor: '#30363d',
+                    borderWidth: 1
+                }
+            },
+            cutout: '80%'
+        },
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,594 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Detalhes da Conversa - AtendBot{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('admin.conversations') }}">Conversas</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Detalhes da Conversa</li>
+            </ol>
+        </nav>
+        <div class="d-flex justify-content-between align-items-center">
+            <h1 class="h3 mb-0 text-gray-800">Detalhes da Conversa</h1>
+            <div>
+                <a href="{{ url_for('admin.conversations') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar
+                </a>
+                <button class="btn btn-primary">
+                    <i class="fas fa-file-export me-1"></i>Exportar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Informações do Cliente -->
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Informações do Cliente</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="info-item px-3 pt-3">
+                    <div class="info-label"><i class="fas fa-hashtag me-1"></i>ID da Conversa</div>
+                    <div class="info-value">#{{ conversation.id if conversation else '1' }}</div>
+                </div>
+                <div class="info-item px-3">
+                    <div class="info-label"><i class="fab fa-whatsapp me-1"></i>Número do WhatsApp</div>
+                    <div class="info-value">
+                        {{ conversation.user_id if conversation else 'whatsapp:+5511999999999' }}
+                        {% if conversation and conversation.user_data and conversation.user_data.real_phone %}
+                            <span class="badge bg-info ms-2" title="Número Real Detectado">{{ conversation.user_data.real_phone }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-item px-3">
+                    <div class="info-label"><i class="fas fa-user me-1"></i>Nome</div>
+                    <div class="info-value">
+                        {% if conversation and conversation.user_data and conversation.user_data.nome %}
+                            {{ conversation.user_data.nome }}
+                        {% else %}
+                            João Silva
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-item px-3">
+                    <div class="info-label"><i class="fas fa-clock me-1"></i>Início da Conversa</div>
+                    <div class="info-value">
+                        {% if conversation and conversation.created_at %}
+                            {{ conversation.created_at.strftime('%d/%m/%Y %H:%M') }}
+                        {% else %}
+                            02/05/2026 14:23
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-item px-3">
+                    <div class="info-label"><i class="fas fa-circle-dot me-1"></i>Status</div>
+                    <div class="info-value mt-1">
+                        {% if conversation and conversation.status %}
+                            {% if conversation.status == 'active' %}
+                                <span class="badge bg-primary">Em Andamento</span>
+                            {% elif conversation.status == 'closed' %}
+                                <span class="badge bg-success">Concluída</span>
+                            {% else %}
+                                <span class="badge bg-warning">Abandonada</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-success">Concluída</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Dados Coletados -->
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Dados Coletados</h6>
+                <div>
+                    <button class="btn btn-sm btn-outline-info" onclick="generateSummary()">
+                        <i class="fas fa-robot me-1"></i>Gerar Resumo IA
+                    </button>
+                    <button class="btn btn-sm btn-outline-success ms-1" onclick="exportSummary()">
+                        <i class="fas fa-download me-1"></i>Exportar
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Campo</th>
+                                <th>Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if conversation and conversation.user_data %}
+                                {% for key, value in conversation.user_data.items() %}
+                                    <tr>
+                                        <td>{{ key }}</td>
+                                        <td>{{ value }}</td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td>Nome</td>
+                                    <td>João Silva</td>
+                                </tr>
+                                <tr>
+                                    <td>Data de Admissão</td>
+                                    <td>15/01/2020</td>
+                                </tr>
+                                <tr>
+                                    <td>Data de Demissão</td>
+                                    <td>10/03/2025</td>
+                                </tr>
+                                <tr>
+                                    <td>Cargo</td>
+                                    <td>Auxiliar Administrativo</td>
+                                </tr>
+                                <tr>
+                                    <td>Salário</td>
+                                    <td>R$ 2.800,00</td>
+                                </tr>
+                                <tr>
+                                    <td>Motivo da Demissão</td>
+                                    <td>Sem justa causa</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Histórico de Mensagens -->
+    <div class="col-lg-8">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Histórico de Mensagens</h6>
+            </div>
+            <div class="card-body">
+                <div class="chat-container">
+                    {% if conversation and conversation.messages %}
+                        {% for message in conversation.messages %}
+                            <div class="message {% if message.role == 'assistant' %}message-bot{% else %}message-user{% endif %}">
+                                <div class="message-header">
+                                    <strong>{{ 'AtendBot' if message.role == 'assistant' else 'Cliente' }}</strong>
+                                    <small class="text-muted">{{ message.timestamp.strftime('%d/%m/%Y %H:%M') }}</small>
+                                </div>
+                                <div class="message-content">
+                                    {{ message.content }}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <!-- Mensagens de exemplo -->
+                        <div class="message message-bot">
+                            <div class="message-header">
+                                <strong>AtendBot</strong>
+                                <small class="text-muted">02/05/2026 14:23</small>
+                            </div>
+                            <div class="message-content">
+                                Olá! Sou o AtendBot, seu assistente virtual inteligente. Como posso te ajudar hoje? Para começar, poderia me informar seu nome?
+                            </div>
+                        </div>
+                        <div class="message message-user">
+                            <div class="message-header">
+                                <strong>Cliente</strong>
+                                <small class="text-muted">02/05/2026 14:24</small>
+                            </div>
+                            <div class="message-content">
+                                Olá, meu nome é João Silva.
+                            </div>
+                        </div>
+                        <div class="message message-bot">
+                            <div class="message-header">
+                                <strong>AtendBot</strong>
+                                <small class="text-muted">02/05/2026 14:24</small>
+                            </div>
+                            <div class="message-content">
+                                Obrigado, João. Para que eu possa entender melhor sua situação, poderia me contar qual problema você está enfrentando com seu empregador?
+                            </div>
+                        </div>
+                        <div class="message message-user">
+                            <div class="message-header">
+                                <strong>Cliente</strong>
+                                <small class="text-muted">02/05/2026 14:25</small>
+                            </div>
+                            <div class="message-content">
+                                Fui demitido sem justa causa há 3 semanas e não recebi todas as verbas rescisórias. Trabalhei na empresa por 5 anos e 2 meses.
+                            </div>
+                        </div>
+                        <div class="message message-bot">
+                            <div class="message-header">
+                                <strong>AtendBot</strong>
+                                <small class="text-muted">02/05/2026 14:26</small>
+                            </div>
+                            <div class="message-content">
+                                Entendi, João. Isso é uma situação séria. Poderia me informar quando você foi admitido na empresa (data de início) e quando foi seu último dia de trabalho?
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Responder ao Cliente -->
+                <div class="reply-area">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-reply text-primary me-2" style="font-size:0.8rem"></i>
+                        <span class="fw-semibold" style="font-size:0.88rem;color:#e6edf3">Responder ao Cliente</span>
+                        <span class="ms-auto badge bg-secondary" id="msgCounter" style="font-size:0.7rem"></span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <textarea id="messageText" class="form-control" rows="2" placeholder="Digite uma mensagem e pressione Enter ou clique em enviar..."></textarea>
+                        <button id="sendBtn" class="btn btn-primary align-self-end px-3" title="Enviar (Enter)">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted mt-1 d-block">
+                        <i class="fas fa-info-circle me-1"></i>Mensagem enviada diretamente para o WhatsApp do cliente.
+                        <span class="ms-2"><kbd>Enter</kbd> envia · <kbd>Shift+Enter</kbd> nova linha</span>
+                    </small>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .info-item {
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(48,54,61,0.5);
+    }
+    .info-item:last-child { border-bottom: none; }
+    .info-label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #8b949e;
+        margin-bottom: 3px;
+    }
+    .info-value {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #e6edf3;
+    }
+
+    .chat-container {
+        max-height: 500px;
+        overflow-y: auto;
+        padding: 14px;
+        background-color: #0d1117;
+        border-radius: 10px;
+        border: 1px solid #30363d;
+    }
+    .chat-container::-webkit-scrollbar { width: 5px; }
+    .chat-container::-webkit-scrollbar-track { background: transparent; }
+    .chat-container::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+
+    .message {
+        margin-bottom: 14px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        max-width: 82%;
+        font-size: 0.88rem;
+    }
+
+    .message-bot {
+        background-color: rgba(124, 58, 237, 0.12);
+        border: 1px solid rgba(124, 58, 237, 0.25);
+        border-radius: 4px 10px 10px 10px;
+        margin-right: auto;
+        color: #e6edf3;
+    }
+
+    .message-user {
+        background-color: rgba(30, 38, 50, 0.9);
+        border: 1px solid #30363d;
+        border-radius: 10px 4px 10px 10px;
+        margin-left: auto;
+        color: #e6edf3;
+    }
+
+    .message-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+        font-size: 0.75rem;
+    }
+
+    .message-bot .message-header strong { color: #a78bfa; }
+    .message-user .message-header strong { color: #58a6ff; }
+    .message-header .msg-time { color: #8b949e; font-size: 0.72rem; }
+    .message-content { word-wrap: break-word; line-height: 1.6; color: #e6edf3; }
+
+    .reply-area {
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 10px;
+        padding: 14px;
+        margin-top: 16px;
+    }
+    .reply-area .form-control {
+        resize: none;
+        font-size: 0.88rem;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const conversationId = "{{ conversation.id }}";
+    const sendBtn = document.getElementById('sendBtn');
+    const messageText = document.getElementById('messageText');
+    const chatContainer = document.querySelector('.chat-container');
+
+    let lastMessageCount = {{ conversation.messages | length if conversation and conversation.messages else 0 }};
+    let isPolling = false;
+
+    // ─── Rola o chat para o final ───────────────────────────────────────────
+    function scrollToBottom() {
+        if (chatContainer) {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+    }
+    scrollToBottom();
+
+    // ─── Renderiza uma mensagem no chat ─────────────────────────────────────
+    function renderMessage(msg) {
+        const isBot = msg.role === 'assistant';
+        const label = isBot ? 'AtendBot' : 'Cliente';
+        const cls = isBot ? 'message-bot' : 'message-user';
+        // Escapa HTML para segurança
+        const safeContent = msg.content
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+        return `
+        <div class="message ${cls}">
+            <div class="message-header">
+                <strong>${label}</strong>
+                <small class="text-muted">${msg.timestamp}</small>
+            </div>
+            <div class="message-content">${safeContent}</div>
+        </div>`;
+    }
+
+    // ─── Polling: busca mensagens novas via AJAX ─────────────────────────────
+    async function pollMessages() {
+        if (isPolling) return;
+        isPolling = true;
+        try {
+            const resp = await fetch(`/admin/conversas/${conversationId}/messages`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (data.status !== 'success') return;
+
+            const msgs = data.messages;
+            if (msgs.length > lastMessageCount) {
+                // Só adiciona as mensagens novas (diff)
+                const newMsgs = msgs.slice(lastMessageCount);
+                newMsgs.forEach(msg => {
+                    chatContainer.insertAdjacentHTML('beforeend', renderMessage(msg));
+                });
+                lastMessageCount = msgs.length;
+                scrollToBottom();
+
+                // Pisca o título da aba para notificar
+                document.title = `(${msgs.length}) Conversa - AtendBot`;
+                setTimeout(() => { document.title = 'Detalhes da Conversa - AtendBot'; }, 3000);
+            }
+        } catch (err) {
+            // silencioso — não quebra a UI
+        } finally {
+            isPolling = false;
+        }
+    }
+
+    // Polling a cada 5 segundos
+    const pollInterval = setInterval(pollMessages, 5000);
+
+    // Para o polling quando o usuário sai da página
+    window.addEventListener('beforeunload', () => clearInterval(pollInterval));
+
+    // ─── Enviar Mensagem ─────────────────────────────────────────────────────
+    async function doSend() {
+        const message = messageText.value.trim();
+        if (!message) return;
+
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        messageText.disabled = true;
+
+        try {
+            const response = await fetch(`/admin/conversas/${conversationId}/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message })
+            });
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                messageText.value = '';
+                // Adiciona imediatamente no chat sem reload
+                const now = new Date();
+                const ts = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+                chatContainer.insertAdjacentHTML('beforeend', renderMessage({
+                    role: 'assistant',
+                    content: message,
+                    timestamp: ts
+                }));
+                lastMessageCount++;
+                scrollToBottom();
+            } else {
+                const errMsg = result.message || 'Erro desconhecido';
+                showAlert('danger', '❌ Erro ao enviar: ' + errMsg);
+            }
+
+        } catch (error) {
+            console.error('Erro ao enviar:', error);
+            showAlert('danger', '❌ Erro de conexão ao enviar mensagem.');
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            messageText.disabled = false;
+            messageText.focus();
+        }
+    }
+
+    sendBtn.addEventListener('click', doSend);
+
+    // Enviar com Ctrl+Enter ou Enter (sem Shift)
+    messageText.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            doSend();
+        }
+    });
+
+    // ─── Função auxiliar de alerta ───────────────────────────────────────────
+    function showAlert(type, msg) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-2`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+        document.querySelector('.reply-area').after(alertDiv);
+        setTimeout(() => alertDiv.remove(), 6000);
+    }
+
+    // ─── Função para gerar resumo da conversa ─────────────────────────────────
+    async function generateSummary() {
+        const conversationId = "{{ conversation.id }}";
+        
+        try {
+            showAlert('info', '🤖 Gerando resumo com IA...');
+            
+            const response = await fetch(`/admin/conversas/${conversationId}/resumo`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                // Criar modal para exibir o resumo
+                const modal = document.createElement('div');
+                modal.className = 'modal fade';
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-robot me-2"></i>Resumo da Conversa
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <h6 class="text-primary mb-3">Dados do Cliente</h6>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <strong>Nome:</strong> ${result.summary.nome || 'Não informado'}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Telefone:</strong> ${result.summary.telefone || 'Não informado'}
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <strong>Situação Parto:</strong> ${result.summary.situacao_parto || 'Não informado'}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Situação Trabalho:</strong> ${result.summary.situacao_trabalho || 'Não informado'}
+                                    </div>
+                                </div>
+                                
+                                <h6 class="text-primary mb-3">Resumo do Atendimento</h6>
+                                <div class="alert alert-info">
+                                    ${result.summary.resumo_atendimento}
+                                </div>
+                                
+                                <h6 class="text-primary mb-3">Próximos Passos</h6>
+                                <div class="alert alert-success">
+                                    ${result.summary.proximos_passos}
+                                </div>
+                                
+                                <h6 class="text-primary mb-3">Problemas Identificados</h6>
+                                <div class="alert alert-warning">
+                                    ${result.summary.problemas || 'Nenhum problema identificado'}
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                                <button type="button" class="btn btn-primary" onclick="exportSummary()">
+                                    <i class="fas fa-download me-1"></i>Exportar Resumo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                const bsModal = new bootstrap.Modal(modal);
+                bsModal.show();
+                
+                // Remover modal do DOM quando fechado
+                modal.addEventListener('hidden.bs.modal', () => {
+                    document.body.removeChild(modal);
+                });
+                
+            } else {
+                showAlert('danger', '❌ Erro ao gerar resumo: ' + (result.message || 'Erro desconhecido'));
+            }
+        } catch (error) {
+            console.error('Erro ao gerar resumo:', error);
+            showAlert('danger', '❌ Erro de conexão ao gerar resumo');
+        }
+    }
+
+    // ─── Função para exportar resumo ───────────────────────────────────────────────
+    async function exportSummary() {
+        const conversationId = "{{ conversation.id }}";
+        
+        try {
+            const response = await fetch(`/admin/conversas/${conversationId}/exportar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `resumo_conversa_${conversationId}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                showAlert('success', '✅ Resumo exportado com sucesso!');
+            } else {
+                showAlert('danger', '❌ Erro ao exportar resumo');
+            }
+        } catch (error) {
+            console.error('Erro ao exportar:', error);
+            showAlert('danger', '❌ Erro de conexão ao exportar');
+        }
+    }
+});
+</script>
+{% endblock %}
+

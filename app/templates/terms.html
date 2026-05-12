@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Termos de Uso - AtendBot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+                <span class="brand-icon"><i class="fas fa-robot"></i></span>
+                AtendBot
+            </a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="filter: invert(0.7);">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('main.index') }}">Início</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('main.about') }}">Sobre</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="{{ url_for('main.terms') }}">Termos</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="section-primary">
+        <div class="container">
+            <div class="col-lg-8 mx-auto">
+                <h1 class="section-title mb-2">Termos de Uso e Política de Privacidade</h1>
+                <p class="section-subtitle">Leia com atenção antes de utilizar o serviço</p>
+
+                <div class="content-card">
+                    <h2>1. Aceitação dos Termos</h2>
+                    <p>
+                        Ao utilizar o AtendBot, você concorda com estes Termos de Uso e Política de Privacidade.
+                        Se não concordar com qualquer parte, por favor, não utilize o serviço.
+                    </p>
+                </div>
+
+                <div class="content-card">
+                    <h2>2. Descrição do Serviço</h2>
+                    <p>
+                        O AtendBot é um assistente virtual automatizado que realiza atendimento via WhatsApp
+                        utilizando inteligência artificial. O serviço tem caráter informativo e de suporte inicial,
+                        complementando o atendimento humano da empresa contratante.
+                    </p>
+                    <p>
+                        As respostas geradas pelo AtendBot são baseadas nas informações configuradas pela empresa
+                        e em modelos de linguagem de IA. Situações complexas podem requerer atendimento humano.
+                    </p>
+                </div>
+
+                <div class="content-card">
+                    <h2>3. Coleta e Uso de Informações</h2>
+                    <p>Ao utilizar o AtendBot, você concorda com a coleta das seguintes informações:</p>
+                    <ul>
+                        <li>Número de telefone do WhatsApp</li>
+                        <li>Conteúdo das mensagens trocadas com o assistente</li>
+                        <li>Dados fornecidos voluntariamente durante a conversa</li>
+                        <li>Data, hora e duração das interações</li>
+                    </ul>
+                    <p>Essas informações são utilizadas exclusivamente para:</p>
+                    <ul>
+                        <li>Prestar o serviço de atendimento solicitado</li>
+                        <li>Melhorar a qualidade das respostas</li>
+                        <li>Gerar relatórios para a empresa contratante</li>
+                        <li>Contato de acompanhamento, quando solicitado</li>
+                    </ul>
+                </div>
+
+                <div class="content-card">
+                    <h2>4. Proteção de Dados (LGPD)</h2>
+                    <p>Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018):</p>
+                    <ul>
+                        <li>Você é o titular dos dados e possui direitos garantidos por lei</li>
+                        <li>Seus dados são tratados com segurança e confidencialidade</li>
+                        <li>Você pode solicitar acesso, correção ou exclusão dos seus dados a qualquer momento</li>
+                        <li>Seus dados não serão compartilhados com terceiros sem consentimento</li>
+                    </ul>
+                    <p>
+                        Para exercer seus direitos, entre em contato com a empresa responsável pelo atendimento.
+                    </p>
+                </div>
+
+                <div class="content-card">
+                    <h2>5. Limitação de Responsabilidade</h2>
+                    <p>
+                        O AtendBot é uma ferramenta de suporte automatizado. A empresa contratante é responsável
+                        pela configuração do conteúdo e pelas informações prestadas ao usuário final.
+                        Não garantimos disponibilidade ininterrupta do serviço.
+                    </p>
+                </div>
+
+                <div class="content-card">
+                    <h2>6. Alterações nos Termos</h2>
+                    <p>
+                        Estes termos podem ser atualizados periodicamente. Recomendamos revisar esta página
+                        regularmente. O uso continuado após alterações constitui aceitação dos novos termos.
+                    </p>
+                    <p>Última atualização: maio de 2026</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6 mb-3 mb-md-0">
+                    <div class="footer-brand">
+                        <span class="brand-icon"><i class="fas fa-robot"></i></span>
+                        AtendBot
+                    </div>
+                    <p>Assistente Virtual Inteligente para WhatsApp</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <ul class="list-inline mb-2">
+                        <li class="list-inline-item"><a href="{{ url_for('main.terms') }}">Termos de Uso</a></li>
+                        <li class="list-inline-item ms-3"><a href="{{ url_for('main.about') }}">Sobre</a></li>
+                    </ul>
+                    <p>&copy; 2026 AtendBot. Todos os direitos reservados.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
