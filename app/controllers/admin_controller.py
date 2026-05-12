@@ -160,27 +160,45 @@ def send_message(conversation_id):
 
         # --- Determina o target_id ---
         if is_lid:
-            # Para @lid, PRIMEIRO tenta resolver o número real via API
-            if not real_phone:
-                print(f"[Send Message] @lid sem real_phone. Tentando resolver via WPP API...")
-                real_phone = wpp.resolve_phone_id(user_id, session_name=session_name)
-                if real_phone:
-                    print(f"[Send Message] Número resolvido: {real_phone}. Salvando...")
+            # Prioridade 1: Usa telefone já salvo no banco
+            if real_phone:
+                print(f"[Send Message] Usando telefone real salvo: {real_phone}")
+                target_id = real_phone
+            else:
+                # Prioridade 2: Tenta resolver via API com múltiplas estratégias
+                print(f"[Send Message] @lid sem real_phone. Tentando resolver via WPP API (estratégias avançadas)...")
+                resolved_phone = wpp.resolve_phone_id(user_id, session_name=session_name)
+                if resolved_phone:
+                    real_phone = resolved_phone
                     chat_session.update_user_data('real_phone', real_phone)
+                    print(f"[Send Message] Número resolvido automaticamente: {real_phone}. Salvando...")
+                    target_id = real_phone
                 else:
-                    # Sem número real → não consegue enviar
-                    print(f"[Send Message] Não foi possível resolver @lid para número real.")
-                    return jsonify({
-                        'status': 'error',
-                        'message': (
-                            '⚠️ Este contato usa ID privado (@lid) e o número de telefone não pôde ser '
-                            'resolvido automaticamente. Por favor, preencha o campo "Telefone Real" '
-                            'no painel desta conversa (ex: 5511999999999) e tente novamente.'
-                        )
-                    }), 422
-
-            # Usa o número real para enviar
-            target_id = real_phone
+                    # Se não conseguir resolver, tenta usar send-reply como fallback
+                    if last_message_id:
+                        print(f"[Send Message] Tentando send-reply como fallback...")
+                        result = wpp.send_reply(user_id, message_text, last_message_id, session_name=session_name)
+                        if isinstance(result, dict) and result.get('status') == 'success':
+                            chat_session.add_message('assistant', message_text)
+                            chat_session.save()
+                            return jsonify({'status': 'success', 'message': 'Mensagem enviada com sucesso via reply!'})
+                        else:
+                            return jsonify({
+                                'status': 'error',
+                                'message': (
+                                    '⚠️ Este contato usa ID privado (@lid) e não foi possível resolver o número. '
+                                    'O sistema tentou responder via reply mas também falhou. '
+                                    'Aguardando o cliente enviar uma nova mensagem para tentar novamente.'
+                                )
+                            }), 422
+                    else:
+                        return jsonify({
+                            'status': 'error',
+                            'message': (
+                                '⚠️ Este contato usa ID privado (@lid) e não foi possível resolver o número. '
+                                'Aguardando o cliente enviar uma nova mensagem para criar um ponto de resposta.'
+                            )
+                        }), 422
         else:
             target_id = user_id
 

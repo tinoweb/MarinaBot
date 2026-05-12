@@ -202,6 +202,7 @@ class WhatsAppAPIService:
 
         # Estratégia 1: get_contact (confiável para resolver LIDs)
         data = self.get_contact(contact_id, session_name)
+        resp_data = None
         if data and data.get('status') == 'success':
             resp_data = data.get('response')
             if resp_data and isinstance(resp_data, dict):
@@ -210,7 +211,7 @@ class WhatsAppAPIService:
                 res_id = resp_data.get('id', {}).get('_serialized') or resp_data.get('id')
                 if res_id and ('@c.us' in res_id or '@s.whatsapp.net' in res_id):
                     resolved = res_id.replace('@s.whatsapp.net', '@c.us')
-                    print(f"[WPP] ID resolvido: {resolved}")
+                    print(f"[WPP] ID resolvido (estratégia 1): {resolved}")
                     return resolved
 
         # Estratégia 2: Tentar extrair do formattedName ou pushname
@@ -243,29 +244,78 @@ class WhatsAppAPIService:
                                 phone_digits = phone_digits[1:]  # Remove o zero inicial
                             
                             resolved = f"{phone_digits}@c.us"
-                            print(f"[WPP] Número extraído do formattedName: {formatted_name} -> {resolved}")
+                            print(f"[WPP] Número extraído do formattedName (estratégia 2): {formatted_name} -> {resolved}")
                             return resolved
 
-        # Estratégia 3: Tentar get_all_contacts para buscar o contato
+        # Estratégia 3: Buscar em todos os contatos (mais robusta)
         try:
+            print(f"[WPP] Tentando estratégia 3: buscar em todos os contatos...")
             all_contacts = self.get_all_contacts(session_name)
             if all_contacts and isinstance(all_contacts, list):
                 for contact in all_contacts:
                     if isinstance(contact, dict):
                         contact_id_field = contact.get('id', {}).get('_serialized') or contact.get('id')
                         if contact_id_field == contact_id:
-                            # Encontrou o contato, agora tenta extrair o número
-                            contact_phone = contact.get('number') or contact.get('phone')
-                            if contact_phone:
-                                phone_digits = re.sub(r'[^\d]', '', contact_phone)
-                                if len(phone_digits) >= 10:
-                                    resolved = f"{phone_digits}@c.us"
-                                    print(f"[WPP] Número encontrado via get_all_contacts: {resolved}")
-                                    return resolved
+                            # Encontrou o contato, agora tenta extrair o número de múltiplas formas
+                            print(f"[WPP] Contato encontrado: {contact.get('name', 'Unknown')}")
+                            
+                            # Tenta extrair de múltiplos campos
+                            phone_fields = ['number', 'phone', 'formattedName', 'pushname', 'name']
+                            for field in phone_fields:
+                                if field in contact:
+                                    field_value = str(contact[field])
+                                    
+                                    # Se for campo de nome, tenta extrair número com regex
+                                    if field in ['formattedName', 'pushname', 'name']:
+                                        phone_match = re.search(r'(\d{10,15})', field_value)
+                                        if phone_match:
+                                            phone_digits = phone_match.group(1)
+                                            if 10 <= len(phone_digits) <= 15:
+                                                if len(phone_digits) == 10:
+                                                    phone_digits = '55' + phone_digits
+                                                elif len(phone_digits) == 11 and phone_digits.startswith('0'):
+                                                    phone_digits = phone_digits[1:]
+                                                
+                                                resolved = f"{phone_digits}@c.us"
+                                                print(f"[WPP] Número extraído do campo '{field}' (estratégia 3): {resolved}")
+                                                return resolved
+                                    
+                                    # Se for campo de número, normaliza diretamente
+                                    else:
+                                        phone_digits = re.sub(r'[^\d]', '', field_value)
+                                        if 10 <= len(phone_digits) <= 15:
+                                            if len(phone_digits) == 10:
+                                                phone_digits = '55' + phone_digits
+                                            elif len(phone_digits) == 11 and phone_digits.startswith('0'):
+                                                phone_digits = phone_digits[1:]
+                                            
+                                            resolved = f"{phone_digits}@c.us"
+                                            print(f"[WPP] Número extraído do campo '{field}' (estratégia 3): {resolved}")
+                                            return resolved
+                            
+                            # Debug: mostra todos os campos disponíveis
+                            print(f"[WPP] Campos disponíveis no contato: {list(contact.keys())}")
+                            
         except Exception as e:
             print(f"[WPP] Erro ao buscar todos os contatos: {e}")
 
-        print(f"[WPP] Não foi possível resolver o ID {contact_id}")
+        # Estratégia 4: Tentar usar o próprio ID como base (último recurso)
+        if '@lid' in contact_id:
+            # Extrai apenas os números do @lid
+            lid_numbers = re.sub(r'[^\d]', '', contact_id)
+            if len(lid_numbers) >= 10:
+                # Tenta formatar como número brasileiro
+                if len(lid_numbers) == 10:
+                    lid_numbers = '55' + lid_numbers
+                elif len(lid_numbers) > 11:
+                    # Se tiver mais de 11 dígitos, tenta extrair os últimos 11
+                    lid_numbers = lid_numbers[-11:]
+                
+                resolved = f"{lid_numbers}@c.us"
+                print(f"[WPP] Tentativa final (estratégia 4): {contact_id} -> {resolved}")
+                return resolved
+
+        print(f"[WPP] Não foi possível resolver o ID {contact_id} após todas as estratégias")
         return None
 
     def check_number_status(self, phone, session_name=None):
