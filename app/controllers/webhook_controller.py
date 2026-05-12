@@ -55,12 +55,44 @@ def _normalize_phone(phone_str):
     """Extrai apenas os números e formata como @c.us"""
     if not phone_str:
         return None
-    # Remove tudo que não for dígito
+    
+    # Procura por padrões de número de telefone específicos
+    # Formatos: +55 XX XXXXX-XXXX, 55 XX XXXXX-XXXX, (55) XX XXXXX-XXXX
+    phone_patterns = [
+        r'\+?(\d{2}\s?\d{2}\s?\d{4,5}[-\s]?\d{4})',  # +55 XX XXXXX-XXXX
+        r'(\d{10,11})',  # Apenas 10-11 dígitos consecutivos
+        r'\((\d{2})\)\s*(\d{4,5}[-\s]?\d{4})',  # (55) XXXXX-XXXX
+    ]
+    
+    for pattern in phone_patterns:
+        match = re.search(pattern, phone_str)
+        if match:
+            # Para o padrão com parênteses, precisamos juntar os grupos
+            if '(' in pattern:
+                groups = match.groups()
+                digits = ''.join(filter(None, groups))
+            else:
+                digits = match.group(1)
+            
+            # Validação: deve ter entre 10 e 15 dígitos (DDD + número)
+            if 10 <= len(digits) <= 15:
+                # Garante que comece com código do país se não tiver
+                if len(digits) == 10:  # Apenas número sem DDD
+                    digits = '55' + digits  # Assume Brasil
+                elif len(digits) == 11 and digits.startswith('0'):  # 0XX XXXXXXXX
+                    digits = digits[1:]  # Remove o zero inicial
+                
+                print(f"[Webhook] Telefone extraído: {phone_str} -> {digits}@c.us")
+                return f"{digits}@c.us"
+    
+    # Fallback: remove tudo que não for dígito (com validação mais rigorosa)
     digits = re.sub(r'\D', '', phone_str)
-    if not digits:
-        return None
-    # Garante o sufixo @c.us
-    return f"{digits}@c.us"
+    if digits and 10 <= len(digits) <= 15:
+        print(f"[Webhook] Telefone extraído (fallback): {phone_str} -> {digits}@c.us")
+        return f"{digits}@c.us"
+    
+    print(f"[Webhook] Não foi possível extrair telefone válido de: {phone_str}")
+    return None
 
 
 def _handle_incoming_message(session, message):

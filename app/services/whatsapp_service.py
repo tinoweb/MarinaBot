@@ -218,15 +218,33 @@ class WhatsAppAPIService:
             formatted_name = resp_data.get('formattedName', '') or resp_data.get('pushname', '')
             if formatted_name:
                 import re
-                # Procura por número no formato +55 XX XXXXX-XXXX
-                phone_match = re.search(r'\+?(\d{2}\s?\d{2}\s?\d{4,5}[-\s]?\d{4})', formatted_name)
-                if phone_match:
-                    phone_digits = re.sub(r'[^\d]', '', phone_match.group(1))
-                    if len(phone_digits) >= 10:
-                        # Formata como @c.us
-                        resolved = f"{phone_digits}@c.us"
-                        print(f"[WPP] Número extraído do formattedName: {resolved}")
-                        return resolved
+                # Procura por padrões de número de telefone específicos
+                phone_patterns = [
+                    r'\+?(\d{2}\s?\d{2}\s?\d{4,5}[-\s]?\d{4})',  # +55 XX XXXXX-XXXX
+                    r'(\d{10,11})',  # Apenas 10-11 dígitos consecutivos
+                    r'\((\d{2})\)\s*(\d{4,5}[-\s]?\d{4})',  # (55) XXXXX-XXXX
+                ]
+                
+                for pattern in phone_patterns:
+                    phone_match = re.search(pattern, formatted_name)
+                    if phone_match:
+                        # Para o padrão com parênteses, precisamos juntar os grupos
+                        if '(' in pattern:
+                            groups = phone_match.groups()
+                            phone_digits = ''.join(filter(None, groups))
+                        else:
+                            phone_digits = re.sub(r'[^\d]', '', phone_match.group(1))
+                        
+                        if 10 <= len(phone_digits) <= 15:
+                            # Garante que comece com código do país se não tiver
+                            if len(phone_digits) == 10:  # Apenas número sem DDD
+                                phone_digits = '55' + phone_digits  # Assume Brasil
+                            elif len(phone_digits) == 11 and phone_digits.startswith('0'):  # 0XX XXXXXXXX
+                                phone_digits = phone_digits[1:]  # Remove o zero inicial
+                            
+                            resolved = f"{phone_digits}@c.us"
+                            print(f"[WPP] Número extraído do formattedName: {formatted_name} -> {resolved}")
+                            return resolved
 
         # Estratégia 3: Tentar get_all_contacts para buscar o contato
         try:
