@@ -191,6 +191,8 @@ class WhatsAppAPIService:
         Tenta descobrir o número real (@c.us) a partir de um ID (como @lid).
         Retorna o ID formatado como @c.us ou None.
         """
+        import re  # Importar no início para estar disponível em todas as estratégias
+        
         if not contact_id:
             return None
 
@@ -218,7 +220,6 @@ class WhatsAppAPIService:
         if resp_data and isinstance(resp_data, dict):
             formatted_name = resp_data.get('formattedName', '') or resp_data.get('pushname', '')
             if formatted_name:
-                import re
                 # Procura por padrões de número de telefone específicos
                 phone_patterns = [
                     r'\+?(\d{2}\s?\d{2}\s?\d{4,5}[-\s]?\d{4})',  # +55 XX XXXXX-XXXX
