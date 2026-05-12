@@ -169,6 +169,23 @@ class WhatsAppAPIService:
             print(f"[WPP] Erro ao obter contato {contact_id}: {e}")
             return None
 
+    def get_all_contacts(self, session_name=None):
+        """Obtém todos os contatos da sessão (útil para resolver @lid)."""
+        session = session_name or self.session_name
+        url = f"{self.server_url}/api/{session}/all-contacts"
+        try:
+            resp = requests.get(url, headers=self._headers(session), timeout=15)
+            print(f"[WPP] get_all_contacts: status={resp.status_code}")
+            if resp.status_code == 200:
+                data = resp.json()
+                contacts = data.get('response', data.get('contacts', []))
+                print(f"[WPP] get_all_contacts: encontrados {len(contacts) if isinstance(contacts, list) else 'N/A'} contatos")
+                return contacts
+            return None
+        except Exception as e:
+            print(f"[WPP] Erro ao obter todos os contatos: {e}")
+            return None
+
     def resolve_phone_id(self, contact_id, session_name=None):
         """
         Tenta descobrir o número real (@c.us) a partir de um ID (como @lid).
@@ -183,7 +200,7 @@ class WhatsAppAPIService:
 
         print(f"[WPP] Tentando resolver ID: {contact_id}")
 
-        # Estratégia única: get_contact (confiável para resolver LIDs)
+        # Estratégia 1: get_contact (confiável para resolver LIDs)
         data = self.get_contact(contact_id, session_name)
         if data and data.get('status') == 'success':
             resp_data = data.get('response')
@@ -195,6 +212,40 @@ class WhatsAppAPIService:
                     resolved = res_id.replace('@s.whatsapp.net', '@c.us')
                     print(f"[WPP] ID resolvido: {resolved}")
                     return resolved
+
+        # Estratégia 2: Tentar extrair do formattedName ou pushname
+        if resp_data and isinstance(resp_data, dict):
+            formatted_name = resp_data.get('formattedName', '') or resp_data.get('pushname', '')
+            if formatted_name:
+                import re
+                # Procura por número no formato +55 XX XXXXX-XXXX
+                phone_match = re.search(r'\+?(\d{2}\s?\d{2}\s?\d{4,5}[-\s]?\d{4})', formatted_name)
+                if phone_match:
+                    phone_digits = re.sub(r'[^\d]', '', phone_match.group(1))
+                    if len(phone_digits) >= 10:
+                        # Formata como @c.us
+                        resolved = f"{phone_digits}@c.us"
+                        print(f"[WPP] Número extraído do formattedName: {resolved}")
+                        return resolved
+
+        # Estratégia 3: Tentar get_all_contacts para buscar o contato
+        try:
+            all_contacts = self.get_all_contacts(session_name)
+            if all_contacts and isinstance(all_contacts, list):
+                for contact in all_contacts:
+                    if isinstance(contact, dict):
+                        contact_id_field = contact.get('id', {}).get('_serialized') or contact.get('id')
+                        if contact_id_field == contact_id:
+                            # Encontrou o contato, agora tenta extrair o número
+                            contact_phone = contact.get('number') or contact.get('phone')
+                            if contact_phone:
+                                phone_digits = re.sub(r'[^\d]', '', contact_phone)
+                                if len(phone_digits) >= 10:
+                                    resolved = f"{phone_digits}@c.us"
+                                    print(f"[WPP] Número encontrado via get_all_contacts: {resolved}")
+                                    return resolved
+        except Exception as e:
+            print(f"[WPP] Erro ao buscar todos os contatos: {e}")
 
         print(f"[WPP] Não foi possível resolver o ID {contact_id}")
         return None

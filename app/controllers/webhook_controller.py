@@ -115,10 +115,21 @@ def _handle_incoming_message(session, message):
             if not real_phone:
                 real_phone = _normalize_phone(sender.get('number') or sender.get('phone'))
             
-            # Prioridade 4: API do WPP Connect (get_contact)
+            # Prioridade 4: API do WPP Connect (resolve_phone_id - agora com múltiplas estratégias)
             if not real_phone and '@lid' in sender_id:
                 print(f"[Webhook] LID detectado sem número no payload. Consultando WPP Connect API...")
                 real_phone = wpp.resolve_phone_id(sender_id, session_name=session)
+                if real_phone:
+                    print(f"[Webhook] LID resolvido automaticamente: {real_phone}")
+                else:
+                    print(f"[Webhook] LID não pôde ser resolvido automaticamente")
+            
+            # Prioridade 5: Tentar resolver LID mesmo que não seja @lid (fallback)
+            if not real_phone and not ('@c.us' in sender_id or '@s.whatsapp.net' in sender_id):
+                print(f"[Webhook] ID desconhecido detectado. Tentando resolver...")
+                real_phone = wpp.resolve_phone_id(sender_id, session_name=session)
+                if real_phone:
+                    print(f"[Webhook] ID desconhecido resolvido: {real_phone}")
 
         # Persiste no banco
         if real_phone:
