@@ -133,12 +133,25 @@ def _handle_incoming_message(session, message):
         if message_id:
             chat_session.update_user_data('last_message_id', message_id)
 
-        # 2. Tenta obter o número real para salvar como metadado
+        # 2. Salva nome do contato (pushname do WhatsApp) se ainda não tiver
+        sender = message.get('sender', {})
+        if not chat_session.user_data.get('nome_wpp'):
+            pushname = (
+                sender.get('pushname') or
+                sender.get('shortName') or
+                sender.get('name') or
+                sender.get('formattedName', '')
+            )
+            # Salva somente se parecer um nome (não número de telefone)
+            if pushname and not re.search(r'^\+?\d[\d\s\-\(\)]{6,}$', pushname):
+                chat_session.update_user_data('nome_wpp', pushname)
+                print(f"[Webhook] Nome WPP salvo: {pushname}")
+
+        # 3. Tenta obter o número real para salvar como metadado
         # Prioridade 1: Já temos no banco?
         real_phone = chat_session.user_data.get('real_phone')
         
         if not real_phone:
-            sender = message.get('sender', {})
             # Prioridade 2: formattedName no payload (ex: '+55 19 98903-3412')
             formatted_name = sender.get('formattedName', '')
             real_phone = _normalize_phone(formatted_name)

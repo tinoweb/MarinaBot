@@ -20,8 +20,9 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        # Verificação simples de credenciais (em produção, use algo mais seguro)
-        if username == 'admin' and password == 'senha123':
+        admin_user = os.getenv('ADMIN_USER', 'admin')
+        admin_password = os.getenv('ADMIN_PASSWORD', 'admin')
+        if username == admin_user and password == admin_password:
             session['admin_logged_in'] = True
             return redirect(url_for('admin.dashboard'))
         else:
@@ -61,32 +62,62 @@ def view_conversation(conversation_id):
         flash('Conversa não encontrada', 'error')
         return redirect(url_for('admin.conversations'))
     
-    # Recupera automaticamente o número real se for @lid e não tiver real_phone
     user_id = conversation['user_id']
-    if '@lid' in user_id:
-        chat_session = ChatSession(user_id)
-        real_phone = chat_session.user_data.get('real_phone')
-        
-        if not real_phone:
-            print(f"[View Conversation] @lid detectado sem real_phone. Tentando resolver...")
-            try:
-                wpp = get_wpp_service()
-                session_name = os.getenv('WHATSAPP_SESSION', 'marina_bot_session')
-                resolved_phone = wpp.resolve_phone_id(user_id, session_name=session_name)
-                if resolved_phone:
-                    print(f"[View Conversation] Número resolvido: {resolved_phone}")
-                    chat_session.update_user_data('real_phone', resolved_phone)
-                    conversation['user_data']['real_phone'] = resolved_phone
-            except Exception as e:
-                print(f"[View Conversation] Erro ao resolver número: {e}")
-    
-    # Marca mensagens como lidas ao entrar na conversa
+    chat_session = ChatSession(user_id)
+    wpp = get_wpp_service()
+    session_name = os.getenv('WHATSAPP_SESSION', 'marina_bot_session')
+
+    # Recupera número real para @lid
+    if '@lid' in user_id and not chat_session.user_data.get('real_phone'):
+        try:
+            resolved_phone = wpp.resolve_phone_id(user_id, session_name=session_name)
+            if resolved_phone:
+                chat_session.update_user_data('real_phone', resolved_phone)
+                conversation['user_data']['real_phone'] = resolved_phone
+        except Exception as e:
+            print(f"[View Conversation] Erro ao resolver número: {e}")
+
+    # Enriquece nome via WPP Connect API se ainda não tiver
+    if not chat_session.user_data.get('nome_wpp'):
+        try:
+            info = wpp.get_contact_info(user_id, session_name=session_name)
+            if info.get('name'):
+                chat_session.update_user_data('nome_wpp', info['name'])
+                conversation['user_data']['nome_wpp'] = info['name']
+        except Exception as e:
+            print(f"[View Conversation] Erro ao buscar nome WPP: {e}")
+
+    # Atualiza conversation com dados mais recentes do banco
+    conversation['user_data'] = chat_session.user_data
+
+    # Formata telefone para exibição
+    raw_phone = (
+        conversation['user_data'].get('real_phone') or
+        (user_id if ('@c.us' in user_id or '@s.whatsapp.net' in user_id) else None)
+    )
+    if raw_phone:
+        digits = raw_phone.split('@')[0]
+        if len(digits) >= 12:
+            conversation['phone_display'] = f"+{digits[:2]} ({digits[2:4]}) {digits[4:9]}-{digits[9:]}"
+        else:
+            conversation['phone_display'] = digits
+    elif '@lid' in user_id:
+        conversation['phone_display'] = f"Privado (ID: {user_id.split('@')[0][:12]}...)"
+    else:
+        conversation['phone_display'] = user_id
+
+    # Nome para exibição (prioridade: nome_completo > nome > nome_wpp > "Não informado")
+    ud = conversation['user_data']
+    conversation['name_display'] = (
+        ud.get('nome_completo') or ud.get('nome') or ud.get('nome_wpp') or 'Não informado'
+    )
+
+    # Marca mensagens como lidas
     try:
-        chat_session = ChatSession(user_id)
         chat_session.mark_as_read()
     except Exception as e:
         print(f"[View Conversation] Erro ao marcar como lido: {e}")
-    
+
     return render_template('admin/conversation_detail.html', conversation=conversation)
 
 @admin_bp.route('/conversas/<conversation_id>/set-phone', methods=['POST'])

@@ -59,23 +59,7 @@ RUN mkdir -p tokens
 EXPOSE 21465
 
 # Script de startup: Aplica hotfixes de runtime e inicia o servidor
-RUN printf '#!/bin/sh\n\
-\n\
-# Desativa o interceptor res.send que causa loop e erro de headers\n\
-# Este interceptor adicionava "session" no JSON, mas o custo de instabilidade é alto.\n\
-sed -i "s/res.send = async function (data)/return next(); res.send = async function (data)/g" /home/user/wppconnect-server/dist/index.js\n\
-\n\
-# Hotfix para garantir que returnError não envie resposta se os headers já foram enviados\n\
-sed -i "s/function returnError(req, res, error) {/function returnError(req, res, error) { if (res.headersSent) return;/g" /home/user/wppconnect-server/dist/controller/messageController.js\n\
-\n\
-# Hotfix para garantir que resultados vazios não causem envio duplo\n\
-sed -i "s/if (results.length === 0) res.status(400)/if (results.length === 0) return res.status(400)/g" /home/user/wppconnect-server/dist/controller/messageController.js\n\
-\n\
-# Aumenta o timeout de autoClose para 5 minutos (300s)\n\
-# Como o config.ts não tem esse campo, procuramos no arquivo compilado de utilitários\n\
-grep -l "autoClose: 60000" /home/user/wppconnect-server/dist/**/*.js | xargs sed -i "s/autoClose: 60000/autoClose: 300000/g" 2>/dev/null || true\n\
-\n\
-echo "Iniciando WPP Connect Server com correções de estabilidade..."\n\
-exec node /home/user/wppconnect-server/dist/server.js\n' > /start.sh && chmod +x /start.sh
+COPY wppconnect-start.sh /start.sh
+RUN sed -i 's/\r$//' /start.sh && chmod +x /start.sh
 
 CMD ["/start.sh"]

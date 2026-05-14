@@ -110,15 +110,25 @@ class WhatsAppAPIService:
             return None
 
     def get_qrcode(self, session_name=None):
-        """Retorna o QR code da sessão em formato base64."""
+        """Retorna o QR code da sessão em formato base64 data URI."""
+        import base64
         session = session_name or self.session_name
         url = f"{self.server_url}/api/{session}/qrcode-session"
         try:
             resp = requests.get(url, headers=self._headers(session), timeout=15)
-            if resp.status_code == 200:
+            if resp.status_code != 200:
+                return None
+            content_type = resp.headers.get('Content-Type', '')
+            # Resposta PNG binária → converte para data URI
+            if 'image' in content_type or resp.content[:4] == b'\x89PNG':
+                b64 = base64.b64encode(resp.content).decode('utf-8')
+                return f"data:image/png;base64,{b64}"
+            # Resposta JSON
+            try:
                 data = resp.json()
                 return data.get('qrcode') or data.get('base64Qrcode')
-            return None
+            except Exception:
+                return None
         except Exception as e:
             print(f"[WPP] Erro ao obter QR code: {e}")
             return None
@@ -300,24 +310,61 @@ class WhatsAppAPIService:
         except Exception as e:
             print(f"[WPP] Erro ao buscar todos os contatos: {e}")
 
-        # Estratégia 4: Tentar usar o próprio ID como base (último recurso)
-        if '@lid' in contact_id:
-            # Extrai apenas os números do @lid
-            lid_numbers = re.sub(r'[^\d]', '', contact_id)
-            if len(lid_numbers) >= 10:
-                # Tenta formatar como número brasileiro
-                if len(lid_numbers) == 10:
-                    lid_numbers = '55' + lid_numbers
-                elif len(lid_numbers) > 11:
-                    # Se tiver mais de 11 dígitos, tenta extrair os últimos 11
-                    lid_numbers = lid_numbers[-11:]
-                
-                resolved = f"{lid_numbers}@c.us"
-                print(f"[WPP] Tentativa final (estratégia 4): {contact_id} -> {resolved}")
-                return resolved
-
+        # Nota: NÃO usamos os dígitos do @lid como fallback de número real
+        # pois IDs privados têm formatos incompatíveis com números de telefone reais
         print(f"[WPP] Não foi possível resolver o ID {contact_id} após todas as estratégias")
         return None
+
+    def get_contact_info(self, contact_id, session_name=None):
+        """
+        Retorna informações do contato (nome/pushname) via WPP Connect.
+        Útil para enriquecer dados de @lid sem número real.
+        """
+        session = session_name or self.session_name
+
+        # Tenta get_contact direto
+        url = f"{self.server_url}/api/{session}/contact/{contact_id}"
+        try:
+            resp = requests.get(url, headers=self._headers(session), timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                contact = data.get('response')
+                if contact and isinstance(contact, dict):
+                    name = (
+                        contact.get('pushname') or
+                        contact.get('shortName') or
+                        contact.get('name') or
+                        contact.get('formattedName', '')
+                    )
+                    if name and not re.search(r'^\+?\d[\d\s\-\(\)]{6,}$', name):
+                        return {'name': name}
+        except Exception:
+            pass
+
+        # Fallback: busca em todos os contatos
+        try:
+            all_contacts = self.get_all_contacts(session_name)
+            if all_contacts and isinstance(all_contacts, list):
+                target = contact_id.split('@')[0]
+                for c in all_contacts:
+                    if not isinstance(c, dict):
+                        continue
+                    cid = c.get('id', {})
+                    cid_str = (cid.get('_serialized', '') or cid.get('user', '')) if isinstance(cid, dict) else str(cid)
+                    if cid_str == contact_id or cid_str.split('@')[0] == target:
+                        name = (
+                            c.get('pushname') or
+                            c.get('shortName') or
+                            c.get('name') or
+                            c.get('formattedName', '')
+                        )
+                        if name and not re.search(r'^\+?\d[\d\s\-\(\)]{6,}$', name):
+                            print(f"[WPP] get_contact_info: nome encontrado via all_contacts: {name}")
+                            return {'name': name}
+        except Exception as e:
+            print(f"[WPP] Erro ao buscar info do contato {contact_id}: {e}")
+
+        return {}
 
     def check_number_status(self, phone, session_name=None):
         """
@@ -347,22 +394,20 @@ class WhatsAppAPIService:
         attempts = []
         
         if '@c.us' in phone or '@s.whatsapp.net' in phone:
-            # Número real: tenta chatId @c.us, depois @s.whatsapp.net, depois digits
+            # Número real: tenta phone array (formato principal) e chatId como fallback
+            digits = phone.split('@')[0]
             attempts = [
+                (url_send, {"phone": [digits], "message": message, "isGroup": False}),
+                (url_send, {"phone": [f"{digits}@c.us"], "message": message, "isGroup": False}),
                 (url_send, {"chatId": phone, "message": message, "isGroup": False}),
-                (url_send, {"chatId": phone.replace('@c.us', '@s.whatsapp.net'), "message": message, "isGroup": False}),
-                (url_send, {"phone": [phone.split('@')[0]], "message": message, "isGroup": False})
             ]
         elif '@lid' in phone:
-            # IDs @lid: o WPP Connect não consegue enviar diretamente para @lid
-            # sem um número real associado. Retorna erro imediatamente.
-            print(f"[WPP] ERRO: Não é possível enviar para ID @lid sem número real (@c.us).")
-            print(f"[WPP] Configure o 'Telefone Real' na página da conversa no painel admin.")
-            return {
-                "status": "error",
-                "message": "Não é possível enviar para este contato (@lid) sem o número de telefone real. "
-                           "Configure o campo 'Telefone Real' no painel da conversa."
-            }
+            # @lid: usa phone array + isLid=True (suportado pelo WPP Connect v2.9+)
+            lid_id = phone.split('@')[0]
+            attempts = [
+                (url_send, {"phone": [phone], "message": message, "isGroup": False, "isLid": True}),
+                (url_send, {"phone": [lid_id], "message": message, "isGroup": False, "isLid": True}),
+            ]
         else:
             # Apenas números: tenta phone field, depois chatId @c.us
             attempts = [
@@ -420,16 +465,21 @@ class WhatsAppAPIService:
 
     def send_reply(self, chat_id, message, quoted_message_id, session_name=None):
         """
-        Envia uma resposta citando uma mensagem anterior.
-        Útil para responder IDs @lid quando o envio direto falha.
+        Envia uma resposta citando uma mensagem anterior via options.quotedMsg.
         """
         session = session_name or self.session_name
-        url = f"{self.server_url}/api/{session}/send-reply"
+        url = f"{self.server_url}/api/{session}/send-message"
+        is_lid = '@lid' in chat_id
+        lid_id = chat_id.split('@')[0] if is_lid else None
         payload = {
-            "chatId": chat_id,
+            "phone": [chat_id],
             "message": message,
-            "quotedMessageId": quoted_message_id
+            "isGroup": False,
+            "options": {"quotedMsg": quoted_message_id},
         }
+        if is_lid:
+            payload["isLid"] = True
+            payload["phone"] = [lid_id]
         try:
             print(f"[WPP] send-reply para {chat_id} citando {quoted_message_id}...")
             resp = requests.post(url, json=payload, headers=self._headers(session), timeout=20)

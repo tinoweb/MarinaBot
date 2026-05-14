@@ -20,11 +20,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia codigo da aplicacao
 COPY . .
 
-# Torna o entrypoint executavel
-RUN chmod +x /app/entrypoint.sh
+# Torna o entrypoint executavel (converte CRLF->LF para compatibilidade Linux)
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Porta do Flask
 EXPOSE 5000
 
-# Entrypoint aguarda MySQL e inicia a aplicacao
-CMD ["/app/entrypoint.sh"]
+# Entrypoint aguarda MySQL e inicia a aplicacao (sed garante LF mesmo com volume mount Windows)
+CMD ["sh", "-c", "sed -i 's/\\r$//' /app/entrypoint.sh && exec /app/entrypoint.sh"]

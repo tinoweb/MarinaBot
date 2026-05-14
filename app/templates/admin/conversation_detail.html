@@ -41,22 +41,37 @@
                 <div class="info-item px-3">
                     <div class="info-label"><i class="fab fa-whatsapp me-1"></i>Número do WhatsApp</div>
                     <div class="info-value">
-                        {{ conversation.user_id if conversation else 'whatsapp:+5511999999999' }}
-                        {% if conversation and conversation.user_data and conversation.user_data.real_phone %}
-                            <span class="badge bg-info ms-2" title="Número Real Detectado">{{ conversation.user_data.real_phone }}</span>
+                        {% if conversation.phone_display %}
+                            {{ conversation.phone_display }}
+                        {% else %}
+                            {{ conversation.user_id }}
+                        {% endif %}
+                        {% if '@lid' in conversation.user_id and not conversation.user_data.real_phone %}
+                            <span class="badge bg-warning ms-1" title="Contato com privacidade ativada">Privado</span>
                         {% endif %}
                     </div>
                 </div>
                 <div class="info-item px-3">
                     <div class="info-label"><i class="fas fa-user me-1"></i>Nome</div>
-                    <div class="info-value">
-                        {% if conversation and conversation.user_data and conversation.user_data.nome %}
-                            {{ conversation.user_data.nome }}
-                        {% else %}
-                            João Silva
+                    <div class="info-value d-flex align-items-center gap-2">
+                        {{ conversation.name_display or 'Não informado' }}
+                        {% if conversation.user_data.get('nome_wpp') and not conversation.user_data.get('nome_completo') and not conversation.user_data.get('nome') %}
+                            <span class="badge bg-secondary" title="Nome do contato no WhatsApp"><i class="fab fa-whatsapp me-1"></i>WPP</span>
                         {% endif %}
                     </div>
                 </div>
+                {% if conversation.user_data.get('telefone') %}
+                <div class="info-item px-3">
+                    <div class="info-label"><i class="fas fa-phone me-1"></i>Telefone Informado</div>
+                    <div class="info-value">{{ conversation.user_data.get('telefone') }}</div>
+                </div>
+                {% endif %}
+                {% if conversation.user_data.get('email') %}
+                <div class="info-item px-3">
+                    <div class="info-label"><i class="fas fa-envelope me-1"></i>Email</div>
+                    <div class="info-value">{{ conversation.user_data.get('email') }}</div>
+                </div>
+                {% endif %}
                 <div class="info-item px-3">
                     <div class="info-label"><i class="fas fa-clock me-1"></i>Início da Conversa</div>
                     <div class="info-value">
@@ -109,39 +124,50 @@
                                 <th>Valor</th>
                             </tr>
                         </thead>
+                        {% set LABELS = {
+                            'nome': 'Nome',
+                            'nome_completo': 'Nome Completo',
+                            'nome_wpp': 'Nome (WhatsApp)',
+                            'telefone': 'Telefone',
+                            'real_phone': 'Número Real (WA)',
+                            'email': 'E-mail',
+                            'idade': 'Idade',
+                            'situacao_parto': 'Situação do Parto',
+                            'meses_gestacao': 'Meses de Gestação',
+                            'previsao_parto': 'Previsão do Parto',
+                            'data_nascimento_bebe': 'Nasc. do Bebê',
+                            'situacao_trabalho': 'Situação de Trabalho',
+                            'status_trabalho': 'Status no Emprego',
+                            'tempo_emprego': 'Tempo no Emprego',
+                            'tempo_desempregada': 'Tempo Desempregada',
+                            'contribuindo_inss': 'Contribui ao INSS',
+                            'tentativa_anterior': 'Tentativa Anterior',
+                            'status_tentativa': 'Status da Tentativa',
+                            'recebe_bolsa_familia': 'Bolsa Família',
+                            'recebeu_seguro_desemprego': 'Seguro Desemprego',
+                            'renda_extra': 'Renda Extra',
+                            'tem_documentos_rurais': 'Docs Rurais'
+                        } %}
+                        {% set HIDDEN = ['last_message_id', 'esperando_data_admissao', 'esperando_salario'] %}
                         <tbody>
                             {% if conversation and conversation.user_data %}
+                                {% set ns = namespace(found=false) %}
                                 {% for key, value in conversation.user_data.items() %}
-                                    <tr>
-                                        <td>{{ key }}</td>
-                                        <td>{{ value }}</td>
-                                    </tr>
+                                    {% if key not in HIDDEN %}
+                                        {% set ns.found = true %}
+                                        <tr>
+                                            <td class="fw-semibold" style="white-space:nowrap;font-size:0.82rem">
+                                                {{ LABELS.get(key, key | replace('_', ' ') | title) }}
+                                            </td>
+                                            <td style="font-size:0.85rem">{{ value }}</td>
+                                        </tr>
+                                    {% endif %}
                                 {% endfor %}
+                                {% if not ns.found %}
+                                    <tr><td colspan="2" class="text-center text-muted fst-italic">Nenhum dado coletado ainda</td></tr>
+                                {% endif %}
                             {% else %}
-                                <tr>
-                                    <td>Nome</td>
-                                    <td>João Silva</td>
-                                </tr>
-                                <tr>
-                                    <td>Data de Admissão</td>
-                                    <td>15/01/2020</td>
-                                </tr>
-                                <tr>
-                                    <td>Data de Demissão</td>
-                                    <td>10/03/2025</td>
-                                </tr>
-                                <tr>
-                                    <td>Cargo</td>
-                                    <td>Auxiliar Administrativo</td>
-                                </tr>
-                                <tr>
-                                    <td>Salário</td>
-                                    <td>R$ 2.800,00</td>
-                                </tr>
-                                <tr>
-                                    <td>Motivo da Demissão</td>
-                                    <td>Sem justa causa</td>
-                                </tr>
+                                <tr><td colspan="2" class="text-center text-muted fst-italic">Nenhum dado coletado ainda</td></tr>
                             {% endif %}
                         </tbody>
                     </table>

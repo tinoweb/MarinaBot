@@ -159,20 +159,24 @@ def _extract_data_from_user_message(chat_session, user_message):
     message_lower = user_message.lower()
     user_data = chat_session.user_data
 
-    # Extrair nome completo (se ainda não tiver)
-    if not user_data.get('nome_completo'):
-        # Padrão: "meu nome é X", "sou X", "eu me chamo X"
+    # Extrair nome (se ainda não tiver)
+    if not user_data.get('nome_completo') and not user_data.get('nome'):
         nome_patterns = [
-            r'meu nome (?:é|e) ([a-zA-Z\s]+)',
-            r'eu (?:me |sou )?(?:chamo|sou) ([a-zA-Z\s]+)',
-            r'sou ([a-zA-Z\s]+)'
+            r'meu nome (?:é|e|eh) ([a-zA-ZÀ-ú\s]{2,40})',
+            r'eu (?:me )?chamo ([a-zA-ZÀ-ú\s]{2,40})',
+            r'pode me chamar de ([a-zA-ZÀ-ú\s]{2,30})',
+            r'sou (?:a |o )?([a-zA-ZÀ-ú]{3,}(?:\s[a-zA-ZÀ-ú]{2,})*)',
         ]
         for pattern in nome_patterns:
             match = re.search(pattern, user_message, re.IGNORECASE)
             if match:
-                nome = match.group(1).strip()
-                if len(nome) > 2 and len(nome.split()) >= 2:  # Pelo menos nome e sobrenome
-                    chat_session.update_user_data('nome_completo', nome)
+                nome = match.group(1).strip().rstrip('.,!?')
+                if 2 < len(nome) <= 60:
+                    if len(nome.split()) >= 2:
+                        chat_session.update_user_data('nome_completo', nome)
+                        chat_session.update_user_data('nome', nome.split()[0])
+                    else:
+                        chat_session.update_user_data('nome', nome)
                     break
 
     # Situação do parto

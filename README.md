@@ -32,6 +32,8 @@ Edite `.env` e preencha:
 - `OPENAI_API_KEY`: sua chave da OpenAI
 - `SECRET_KEY`: chave secreta forte para Flask
 - `MYSQL_PASSWORD`: senha do root do MySQL (pode deixar a padrao ou alterar)
+- `ADMIN_USER`: usuário do painel admin (padrão: admin)
+- `ADMIN_PASSWORD`: senha do painel admin (configure uma senha forte)
 
 ### 3. Suba os containers (desenvolvimento)
 
@@ -56,7 +58,7 @@ docker logs -f marina_bot_app
 ### 5. Acesse
 
 - Site: `http://localhost:5000`
-- Painel admin: `http://localhost:5000/admin` (admin / senha123)
+- Painel admin: `http://localhost:5000/admin` (usuário/senha configurados no .env)
 
 ### Parar
 
