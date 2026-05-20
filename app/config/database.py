@@ -66,6 +66,27 @@ def init_db():
         except Exception:
             pass
 
+        # Colunas profissionais para gestão de atendimento
+        try:
+            cursor.execute("ALTER TABLE chat_sessions ADD COLUMN ia_pausada TINYINT(1) NOT NULL DEFAULT 0")
+        except Exception:
+            pass
+
+        try:
+            cursor.execute("ALTER TABLE chat_sessions ADD COLUMN qualificacao VARCHAR(50) DEFAULT NULL")
+        except Exception:
+            pass
+
+        try:
+            cursor.execute("ALTER TABLE chat_sessions ADD COLUMN etapa_atual TINYINT NOT NULL DEFAULT 1")
+        except Exception:
+            pass
+
+        try:
+            cursor.execute("ALTER TABLE chat_sessions ADD COLUMN ultimo_contato_at DATETIME DEFAULT NULL")
+        except Exception:
+            pass
+
         
         # Cria tabela de mensagens
         cursor.execute('''
@@ -105,6 +126,59 @@ def init_db():
         )
         ''')
 
+        # Notas internas por conversa
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS conversation_notes (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            session_id INT NOT NULL,
+            note TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_notes_session (session_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ''')
+
+        # Checklist de documentos por conversa
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS document_checklist (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            session_id INT NOT NULL,
+            doc_type VARCHAR(60) NOT NULL,
+            checked TINYINT(1) DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_checklist (session_id, doc_type)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ''')
+
+        # Follow-ups agendados manualmente
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS scheduled_followups (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            session_id INT NOT NULL,
+            scheduled_at DATETIME NOT NULL,
+            message TEXT NOT NULL,
+            sent TINYINT(1) DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_sf_session (session_id),
+            INDEX idx_sf_scheduled (scheduled_at, sent)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ''')
+
+        # Uso de tokens da OpenAI por conversa
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS token_usage (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            session_id INT,
+            model VARCHAR(60),
+            prompt_tokens INT DEFAULT 0,
+            completion_tokens INT DEFAULT 0,
+            total_tokens INT DEFAULT 0,
+            estimated_cost_usd DECIMAL(10,6) DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_usage_created (created_at),
+            INDEX idx_usage_session (session_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ''')
+
         # Cria tabela de configurações da IA
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS ai_settings (
@@ -117,11 +191,38 @@ def init_db():
         )
         ''')
 
-        # Insere prompt padrão se não existir
+        # Carrega o script real da Dra. Marina como prompt padrão
+        try:
+            import os as _os
+            _script_path = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))), 'modelo_atendimento_ia.txt')
+            with open(_script_path, 'r', encoding='utf-8') as _f:
+                _default_prompt = _f.read()
+        except Exception:
+            _default_prompt = (
+                'Você é a assistente virtual da Dra. Marina Marques, advogada especialista em '
+                'Salário Maternidade pelo INSS. Atenda com tom acolhedor, simples e direto. '
+                'Uma pergunta por vez. Nunca negocie honorários. Nunca dê detalhes técnicos '
+                'antes do contrato assinado. Responda sempre em português.'
+            )
+
         cursor.execute('''
         INSERT IGNORE INTO ai_settings (setting_key, setting_value)
-        VALUES ('system_prompt', 'Você é um assistente jurídico especializado em direito trabalhista, chamado Marina Bot. Seu objetivo é coletar informações relevantes para casos trabalhistas e ajudar clientes a entenderem seus direitos. Seja cordial, profissional e preciso. Responda sempre em português.')
-        ''')
+        VALUES ('system_prompt', %s)
+        ''', (_default_prompt,))
+
+        # Configurações adicionais padrão
+        defaults_extra = [
+            ('instagram_handle', '@drainss'),
+            ('followup_enabled', 'true'),
+            ('bot_name', 'Assistente da Dra. Marina'),
+            ('welcome_message', 'Olá! Aqui é a assistente da Dra. Marina Marques, advogada especialista em benefícios do INSS.\n\nA Dra. Marina já recebeu seu contato. 👩‍⚖️\n\nMe conta: com qual benefício posso te ajudar hoje?'),
+            ('ai_model', 'gpt-4o-mini'),
+            ('temperature', '0.4'),
+        ]
+        for _key, _val in defaults_extra:
+            cursor.execute('''
+            INSERT IGNORE INTO ai_settings (setting_key, setting_value) VALUES (%s, %s)
+            ''', (_key, _val))
 
         conn.commit()
         cursor.close()

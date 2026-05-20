@@ -1,14 +1,30 @@
 {% extends 'admin/base.html' %}
 
-{% block title %}Dashboard - AtendBot{% endblock %}
+{% block title %}Dashboard - MarinaBot{% endblock %}
 
 {% block content %}
+{% set stats = stats or {} %}
 <div class="row mb-4">
     <div class="col-md-12">
         <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
         <p class="text-muted">Visão geral do sistema</p>
     </div>
 </div>
+
+{% if stats.inativos_2h and stats.inativos_2h > 0 %}
+<div class="alert alert-warning alert-dismissible fade show d-flex align-items-center gap-3 mb-4" role="alert"
+     style="border-left:4px solid #e3a008">
+    <i class="fas fa-bell fa-lg" style="color:#e3a008"></i>
+    <div>
+        <strong>{{ stats.inativos_2h }} lead{{ 's' if stats.inativos_2h > 1 else '' }} sem resposta há mais de 2 horas.</strong>
+        <span class="text-muted ms-1">Considere agendar um follow-up ou verificar manualmente.</span>
+    </div>
+    <a href="{{ url_for('admin.leads') }}" class="btn btn-sm btn-warning ms-auto">
+        <i class="fas fa-eye me-1"></i>Ver Leads
+    </a>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
 
 <div class="row">
     <!-- Total de Conversas -->
@@ -19,7 +35,7 @@
                     <div class="col mr-2">
                         <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
                             Total de Conversas</div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">215</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total or 0 }}</div>
                     </div>
                     <div class="col-auto">
                         <i class="fas fa-comments fa-2x text-gray-300"></i>
@@ -37,7 +53,7 @@
                     <div class="col mr-2">
                         <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
                             Conversas Ativas</div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">24</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.active or 0 }}</div>
                     </div>
                     <div class="col-auto">
                         <i class="fas fa-user-clock fa-2x text-gray-300"></i>
@@ -55,7 +71,7 @@
                     <div class="col mr-2">
                         <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
                             Conversas Concluídas</div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">191</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.closed or 0 }}</div>
                     </div>
                     <div class="col-auto">
                         <i class="fas fa-check-circle fa-2x text-gray-300"></i>
@@ -72,8 +88,8 @@
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
                         <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                            Taxa de Conversão</div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">65%</div>
+                            Qualificadas ✅</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.qualificadas or 0 }}</div>
                     </div>
                     <div class="col-auto">
                         <i class="fas fa-percentage fa-2x text-gray-300"></i>
@@ -146,42 +162,42 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>whatsapp:+5511999999999</td>
-                                <td>02/05/2026 14:23</td>
-                                <td>02/05/2026 14:45</td>
-                                <td><span class="badge bg-success">Concluída</span></td>
-                                <td>
-                                    <a href="{{ url_for('admin.view_conversation', conversation_id=1) }}" class="btn btn-sm btn-primary">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>2</td>
-                                <td>whatsapp:+5511888888888</td>
-                                <td>02/05/2026 15:10</td>
-                                <td>02/05/2026 15:30</td>
-                                <td><span class="badge bg-primary">Em Andamento</span></td>
-                                <td>
-                                    <a href="{{ url_for('admin.view_conversation', conversation_id=2) }}" class="btn btn-sm btn-primary">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>3</td>
-                                <td>whatsapp:+5511777777777</td>
-                                <td>02/05/2026 16:05</td>
-                                <td>02/05/2026 16:15</td>
-                                <td><span class="badge bg-warning">Abandonada</span></td>
-                                <td>
-                                    <a href="{{ url_for('admin.view_conversation', conversation_id=3) }}" class="btn btn-sm btn-primary">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
+                            {% if stats.recentes %}
+                                {% for conv in stats.recentes %}
+                                <tr>
+                                    <td>{{ conv.id }}</td>
+                                    <td>
+                                        {{ conv.nome_display or conv.user_id | truncate(25) }}
+                                        {% if conv.qualificacao and conv.qualificacao != 'pendente' %}
+                                            <span class="badge {% if conv.qualificacao == 'qualificada' %}bg-success{% elif 'descarte' in conv.qualificacao %}bg-danger{% elif conv.qualificacao == 'fechamento' %}bg-primary{% else %}bg-warning text-dark{% endif %} ms-1" style="font-size:0.65rem">
+                                                {{ conv.qualificacao | replace('_',' ') | title }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ conv.created_at.strftime('%d/%m %H:%M') if conv.created_at else '-' }}</td>
+                                    <td>{{ conv.updated_at.strftime('%d/%m %H:%M') if conv.updated_at else '-' }}</td>
+                                    <td>
+                                        {% if conv.status == 'active' %}
+                                            <span class="badge bg-primary">Em Andamento</span>
+                                        {% elif conv.status == 'closed' %}
+                                            <span class="badge bg-success">Concluída</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ conv.status }}</span>
+                                        {% endif %}
+                                        {% if conv.unread_count > 0 %}
+                                            <span class="badge bg-danger ms-1">{{ conv.unread_count }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('admin.view_conversation', conversation_id=conv.id) }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="6" class="text-center text-muted fst-italic">Nenhuma conversa ainda</td></tr>
+                            {% endif %}
                         </tbody>
                     </table>
                 </div>
@@ -201,7 +217,7 @@
     var myLineChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ["24/04", "25/04", "26/04", "27/04", "28/04", "29/04", "30/04", "01/05"],
+            labels: {{ stats.semana | map(attribute='dia') | list | tojson }},
             datasets: [{
                 label: "Conversas",
                 lineTension: 0.3,
@@ -215,7 +231,7 @@
                 pointHoverBorderColor: "rgba(78, 115, 223, 1)",
                 pointHitRadius: 10,
                 pointBorderWidth: 2,
-                data: [15, 25, 20, 30, 25, 40, 35, 25],
+                data: {{ stats.semana | map(attribute='total') | list | tojson }},
             }],
         },
         options: {
@@ -251,7 +267,7 @@
         data: {
             labels: ["Concluídas", "Em Andamento", "Abandonadas"],
             datasets: [{
-                data: [65, 20, 15],
+                data: [{{ stats.qualificadas or 0 }}, {{ stats.active or 0 }}, {{ stats.descarte or 0 }}],
                 backgroundColor: ['#1cc88a', '#4e73df', '#f6c23e'],
                 hoverBackgroundColor: ['#17a673', '#2e59d9', '#dda20a'],
                 hoverBorderColor: "rgba(234, 236, 244, 1)",

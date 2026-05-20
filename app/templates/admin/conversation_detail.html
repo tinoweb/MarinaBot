@@ -13,14 +13,50 @@
             </ol>
         </nav>
         <div class="d-flex justify-content-between align-items-center">
-            <h1 class="h3 mb-0 text-gray-800">Detalhes da Conversa</h1>
             <div>
+                <h1 class="h3 mb-0 text-gray-800">Detalhes da Conversa</h1>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    <!-- Badge Etapa do Funil -->
+                    <span class="badge bg-secondary" id="etapaBadge" title="Etapa atual no funil">
+                        <i class="fas fa-layer-group me-1"></i>Etapa {{ conversation.etapa_atual or 1 }}
+                    </span>
+                    <!-- Badge Qualificação -->
+                    {% set q = conversation.qualificacao or 'pendente' %}
+                    <span class="badge {% if q == 'qualificada' %}bg-success{% elif 'descarte' in q %}bg-danger{% elif q == 'fechamento' %}bg-primary{% elif q == 'aguardando_docs' %}bg-warning text-dark{% elif q == 'pos_venda' %}bg-info{% else %}bg-secondary{% endif %}" id="qualifBadge">
+                        <i class="fas fa-tag me-1"></i>{{ q | replace('_',' ') | title }}
+                    </span>
+                    <!-- Indicador IA Pausada -->
+                    <span class="badge {% if conversation.ia_pausada %}bg-danger{% else %}bg-success{% endif %}" id="iaBadge">
+                        <i class="fas fa-robot me-1"></i>IA {% if conversation.ia_pausada %}Pausada{% else %}Ativa{% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <!-- Toggle IA -->
+                <button id="toggleIaBtn" onclick="toggleIA()"
+                    class="btn {% if conversation.ia_pausada %}btn-success{% else %}btn-warning{% endif %}">
+                    <i class="fas {% if conversation.ia_pausada %}fa-play{% else %}fa-pause{% endif %} me-1"></i>
+                    {% if conversation.ia_pausada %}Retomar IA{% else %}Pausar IA{% endif %}
+                </button>
+                <!-- Alterar Qualificação -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-tag me-1"></i>Qualificação
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button class="dropdown-item" onclick="setQualif('qualificada')">✅ Qualificada</button></li>
+                        <li><button class="dropdown-item" onclick="setQualif('aguardando_docs')">📎 Aguardando Docs</button></li>
+                        <li><button class="dropdown-item" onclick="setQualif('docs_recebidos')">📄 Docs Recebidos</button></li>
+                        <li><button class="dropdown-item" onclick="setQualif('fechamento')">🤝 Fechamento</button></li>
+                        <li><button class="dropdown-item" onclick="setQualif('pos_venda')">⭐ Pós-venda</button></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button class="dropdown-item text-danger" onclick="setQualif('descarte_1')">❌ Descarte 1 (< 16 anos)</button></li>
+                        <li><button class="dropdown-item text-danger" onclick="setQualif('descarte_2')">❌ Descarte 2 (prazo expirado)</button></li>
+                    </ul>
+                </div>
                 <a href="{{ url_for('admin.conversations') }}" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left me-1"></i>Voltar
                 </a>
-                <button class="btn btn-primary">
-                    <i class="fas fa-file-export me-1"></i>Exportar
-                </button>
             </div>
         </div>
     </div>
@@ -174,6 +210,63 @@
                 </div>
             </div>
         </div>
+        <!-- Notas Internas -->
+        <div class="card shadow mb-3">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-warning" style="font-size:.85rem">
+                    <i class="fas fa-sticky-note me-1"></i>Notas Internas
+                </h6>
+                <button class="btn btn-xs btn-outline-warning" style="font-size:.72rem;padding:2px 8px" onclick="toggleNotesForm()">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <div class="card-body p-2">
+                <div id="notesForm" style="display:none" class="mb-2">
+                    <textarea id="noteInput" class="form-control form-control-sm mb-1" rows="2"
+                              placeholder="Anotação interna (não enviada ao cliente)..."></textarea>
+                    <button class="btn btn-sm btn-warning w-100" onclick="saveNote()">Salvar Nota</button>
+                </div>
+                <div id="notesList" style="font-size:.8rem">
+                    <p class="text-muted text-center fst-italic mb-0">Carregando...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Checklist de Documentos -->
+        <div class="card shadow mb-3">
+            <div class="card-header py-2">
+                <h6 class="m-0 font-weight-bold text-info" style="font-size:.85rem">
+                    <i class="fas fa-file-check me-1"></i>Checklist de Documentos
+                </h6>
+            </div>
+            <div class="card-body p-2" id="checklistContainer">
+                <p class="text-muted text-center fst-italic mb-0" style="font-size:.8rem">Carregando...</p>
+            </div>
+        </div>
+
+        <!-- Follow-up Agendado -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold" style="color:#3fb950;font-size:.85rem">
+                    <i class="fas fa-calendar-clock me-1"></i>Follow-up Agendado
+                </h6>
+                <button class="btn btn-xs btn-outline-success" style="font-size:.72rem;padding:2px 8px" onclick="toggleSfForm()">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            <div class="card-body p-2">
+                <div id="sfForm" style="display:none" class="mb-2">
+                    <input type="datetime-local" id="sfDatetime" class="form-control form-control-sm mb-1">
+                    <textarea id="sfMessage" class="form-control form-control-sm mb-1" rows="2"
+                              placeholder="Mensagem a enviar..."></textarea>
+                    <button class="btn btn-sm btn-success w-100" onclick="saveScheduledFollowup()">Agendar Envio</button>
+                </div>
+                <div id="sfList" style="font-size:.8rem">
+                    <p class="text-muted text-center fst-italic mb-0">Carregando...</p>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- Histórico de Mensagens -->
@@ -246,11 +339,23 @@
                     {% endif %}
                 </div>
 
+                <!-- Templates Rápidos -->
+                <div id="templatesPanel" style="display:none;margin-top:12px;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-semibold" style="font-size:0.82rem;color:#8b949e;"><i class="fas fa-bolt me-1"></i>Templates Rápidos</span>
+                        <button onclick="document.getElementById('templatesPanel').style.display='none'" class="btn btn-sm btn-link text-muted p-0"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div id="templatesList" class="d-flex flex-wrap gap-2"></div>
+                </div>
+
                 <!-- Responder ao Cliente -->
                 <div class="reply-area">
                     <div class="d-flex align-items-center mb-2">
                         <i class="fas fa-reply text-primary me-2" style="font-size:0.8rem"></i>
                         <span class="fw-semibold" style="font-size:0.88rem;color:#e6edf3">Responder ao Cliente</span>
+                        <button onclick="loadTemplates()" class="btn btn-sm btn-outline-secondary ms-2" title="Templates rápidos" style="font-size:0.72rem;padding:2px 8px">
+                            <i class="fas fa-bolt me-1"></i>Templates
+                        </button>
                         <span class="ms-auto badge bg-secondary" id="msgCounter" style="font-size:0.7rem"></span>
                     </div>
                     <div class="d-flex gap-2">
@@ -357,8 +462,107 @@
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+    // ─── Variável global necessária para os onclick dos botões ───────────────
     const conversationId = "{{ conversation.id }}";
+
+    // ─── Toggle IA Pausada ───────────────────────────────────────────────────
+    async function toggleIA() {
+        const btn = document.getElementById('toggleIaBtn');
+        const badge = document.getElementById('iaBadge');
+        btn.disabled = true;
+        try {
+            const resp = await fetch(`/admin/conversas/${conversationId}/toggle-ia`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await resp.json();
+            if (data.status === 'success') {
+                const paused = data.ia_pausada === 1;
+                badge.innerHTML = `<i class="fas fa-robot me-1"></i>IA ${paused ? 'Pausada' : 'Ativa'}`;
+                badge.className = `badge ${paused ? 'bg-danger' : 'bg-success'}`;
+                btn.innerHTML = `<i class="fas ${paused ? 'fa-play' : 'fa-pause'} me-1"></i>${paused ? 'Retomar IA' : 'Pausar IA'}`;
+                btn.className = `btn ${paused ? 'btn-success' : 'btn-warning'}`;
+                showAdminAlert('success', `✅ ${data.message}`);
+            } else {
+                showAdminAlert('danger', '❌ ' + data.message);
+            }
+        } catch(e) {
+            showAdminAlert('danger', '❌ Erro de conexão.');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // ─── Atualizar Qualificação ───────────────────────────────────────────────
+    async function setQualif(value) {
+        try {
+            const resp = await fetch(`/admin/conversas/${conversationId}/qualificacao`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qualificacao: value })
+            });
+            const data = await resp.json();
+            if (data.status === 'success') {
+                const badge = document.getElementById('qualifBadge');
+                const label = value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                badge.innerHTML = `<i class="fas fa-tag me-1"></i>${label}`;
+                const colorMap = {
+                    'qualificada': 'bg-success', 'descarte_1': 'bg-danger', 'descarte_2': 'bg-danger',
+                    'fechamento': 'bg-primary', 'aguardando_docs': 'bg-warning text-dark',
+                    'pos_venda': 'bg-info', 'docs_recebidos': 'bg-info'
+                };
+                badge.className = `badge ${colorMap[value] || 'bg-secondary'}`;
+                showAdminAlert('success', `✅ Qualificação: ${label}`);
+            } else {
+                showAdminAlert('danger', '❌ ' + data.message);
+            }
+        } catch(e) {
+            showAdminAlert('danger', '❌ Erro de conexão.');
+        }
+    }
+
+    // ─── Templates Rápidos ───────────────────────────────────────────────────
+    async function loadTemplates() {
+        const panel = document.getElementById('templatesPanel');
+        const list = document.getElementById('templatesList');
+        if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+        try {
+            const resp = await fetch('/admin/templates');
+            const data = await resp.json();
+            if (data.status !== 'success') return;
+            list.innerHTML = '';
+            data.templates.forEach(t => {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-sm btn-outline-secondary';
+                btn.style.fontSize = '0.78rem';
+                btn.textContent = t.label;
+                btn.title = t.text.substring(0, 100) + '...';
+                btn.onclick = () => {
+                    document.getElementById('messageText').value = t.text;
+                    panel.style.display = 'none';
+                    document.getElementById('messageText').focus();
+                };
+                list.appendChild(btn);
+            });
+            panel.style.display = 'block';
+        } catch(e) {
+            showAdminAlert('danger', '❌ Erro ao carregar templates.');
+        }
+    }
+
+    // ─── Helper de alerta global ─────────────────────────────────────────────
+    function showAdminAlert(type, msg) {
+        const existing = document.getElementById('adminGlobalAlert');
+        if (existing) existing.remove();
+        const div = document.createElement('div');
+        div.id = 'adminGlobalAlert';
+        div.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        div.style.cssText = 'top:20px;right:20px;z-index:9999;min-width:280px;max-width:400px;';
+        div.innerHTML = `${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 4000);
+    }
+
+document.addEventListener('DOMContentLoaded', function() {
     const sendBtn = document.getElementById('sendBtn');
     const messageText = document.getElementById('messageText');
     const chatContainer = document.querySelector('.chat-container');
@@ -495,126 +699,225 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => alertDiv.remove(), 6000);
     }
 
-    // ─── Função para gerar resumo da conversa ─────────────────────────────────
-    async function generateSummary() {
-        const conversationId = "{{ conversation.id }}";
-        
+});
+
+    // ─── Notas Internas ──────────────────────────────────────────────────────
+    function toggleNotesForm() {
+        const f = document.getElementById('notesForm');
+        f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    }
+
+    async function loadNotes() {
+        const list = document.getElementById('notesList');
         try {
-            showAlert('info', '🤖 Gerando resumo com IA...');
-            
+            const r = await fetch(`/admin/conversas/${conversationId}/notes`);
+            const d = await r.json();
+            if (!d.notes || d.notes.length === 0) {
+                list.innerHTML = '<p class="text-muted fst-italic mb-0">Nenhuma nota</p>'; return;
+            }
+            list.innerHTML = d.notes.map(n => `
+                <div class="d-flex justify-content-between align-items-start py-1 border-bottom" style="border-color:#30363d!important">
+                    <div>
+                        <div style="white-space:pre-wrap;color:#e6edf3">${n.note.replace(/</g,'&lt;')}</div>
+                        <small class="text-muted">${n.created_at}</small>
+                    </div>
+                    <button class="btn btn-xs ms-2" style="color:#f85149;background:none;border:none;font-size:.7rem"
+                            onclick="deleteNote(${n.id})"><i class="fas fa-trash"></i></button>
+                </div>`).join('');
+        } catch(e) { list.innerHTML = '<p class="text-danger">Erro ao carregar</p>'; }
+    }
+
+    async function saveNote() {
+        const txt = document.getElementById('noteInput').value.trim();
+        if (!txt) return;
+        const r = await fetch(`/admin/conversas/${conversationId}/notes`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({note: txt})
+        });
+        const d = await r.json();
+        if (d.status === 'success') {
+            document.getElementById('noteInput').value = '';
+            document.getElementById('notesForm').style.display = 'none';
+            await loadNotes();
+            showAdminAlert('success', '✅ Nota salva!');
+        } else { showAdminAlert('danger', '❌ ' + d.message); }
+    }
+
+    async function deleteNote(noteId) {
+        if (!confirm('Excluir nota?')) return;
+        await fetch(`/admin/conversas/${conversationId}/notes/${noteId}`, {method:'DELETE'});
+        await loadNotes();
+    }
+
+    // ─── Checklist de Documentos ─────────────────────────────────────────────
+    async function loadChecklist() {
+        const c = document.getElementById('checklistContainer');
+        try {
+            const r = await fetch(`/admin/conversas/${conversationId}/checklist`);
+            const d = await r.json();
+            c.innerHTML = d.checklist.map(item => `
+                <label class="d-flex align-items-center gap-2 py-1 cursor-pointer"
+                       style="border-bottom:1px solid #30363d;font-size:.82rem;cursor:pointer">
+                    <input type="checkbox" class="form-check-input mt-0" ${item.checked ? 'checked' : ''}
+                           onchange="toggleChecklist('${item.key}', this.checked)"
+                           style="flex-shrink:0">
+                    <span style="color:${item.checked ? '#3fb950' : '#e6edf3'}">${item.label}</span>
+                    ${item.checked ? '<i class="fas fa-check-circle ms-auto text-success" style="font-size:.7rem"></i>' : ''}
+                </label>`).join('');
+        } catch(e) { c.innerHTML = '<p class="text-danger" style="font-size:.8rem">Erro ao carregar</p>'; }
+    }
+
+    async function toggleChecklist(docType, checked) {
+        await fetch(`/admin/conversas/${conversationId}/checklist`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({doc_type: docType, checked: checked})
+        });
+        await loadChecklist();
+    }
+
+    // ─── Follow-up Agendado ───────────────────────────────────────────────────
+    function toggleSfForm() {
+        const f = document.getElementById('sfForm');
+        f.style.display = f.style.display === 'none' ? 'block' : 'none';
+        if (f.style.display === 'block') {
+            const now = new Date(Date.now() + 60*60*1000);
+            document.getElementById('sfDatetime').value = now.toISOString().slice(0,16);
+        }
+    }
+
+    async function loadScheduledFollowups() {
+        const list = document.getElementById('sfList');
+        try {
+            const r = await fetch(`/admin/conversas/${conversationId}/schedule-followup`);
+            const d = await r.json();
+            if (!d.followups || d.followups.length === 0) {
+                list.innerHTML = '<p class="text-muted fst-italic mb-0">Nenhum agendado</p>'; return;
+            }
+            list.innerHTML = d.followups.map(sf => `
+                <div class="d-flex justify-content-between align-items-start py-1 border-bottom" style="border-color:#30363d!important">
+                    <div>
+                        <div style="color:#e6edf3;white-space:pre-wrap">${sf.message.substring(0,60)}${sf.message.length>60?'...':''}</div>
+                        <small class="${sf.sent ? 'text-success' : 'text-warning'}">
+                            <i class="fas ${sf.sent ? 'fa-check' : 'fa-clock'} me-1"></i>${sf.scheduled_at}
+                        </small>
+                    </div>
+                    ${!sf.sent ? `<button class="btn btn-xs ms-2" style="color:#f85149;background:none;border:none;font-size:.7rem"
+                            onclick="cancelFollowup(${sf.id})"><i class="fas fa-times"></i></button>` : ''}
+                </div>`).join('');
+        } catch(e) { list.innerHTML = '<p class="text-danger">Erro ao carregar</p>'; }
+    }
+
+    async function saveScheduledFollowup() {
+        const dt = document.getElementById('sfDatetime').value;
+        const msg = document.getElementById('sfMessage').value.trim();
+        if (!dt || !msg) { showAdminAlert('warning', '⚠️ Preencha data e mensagem'); return; }
+        const r = await fetch(`/admin/conversas/${conversationId}/schedule-followup`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({scheduled_at: dt, message: msg})
+        });
+        const d = await r.json();
+        if (d.status === 'success') {
+            document.getElementById('sfDatetime').value = '';
+            document.getElementById('sfMessage').value = '';
+            document.getElementById('sfForm').style.display = 'none';
+            await loadScheduledFollowups();
+            showAdminAlert('success', '✅ Follow-up agendado!');
+        } else { showAdminAlert('danger', '❌ ' + d.message); }
+    }
+
+    async function cancelFollowup(sfId) {
+        if (!confirm('Cancelar follow-up?')) return;
+        await fetch(`/admin/conversas/${conversationId}/schedule-followup/${sfId}`, {method:'DELETE'});
+        await loadScheduledFollowups();
+    }
+
+    // ─── Carregar painéis ao abrir a página ──────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function() {
+        loadNotes();
+        loadChecklist();
+        loadScheduledFollowups();
+    });
+
+    // ─── Gerar Resumo IA (global) ─────────────────────────────────────────────
+    async function generateSummary() {
+        try {
+            showAdminAlert('info', '🤖 Gerando resumo com IA...');
             const response = await fetch(`/admin/conversas/${conversationId}/resumo`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
-            
             const result = await response.json();
-            
             if (result.status === 'success') {
-                // Criar modal para exibir o resumo
+                const s = result.summary;
                 const modal = document.createElement('div');
                 modal.className = 'modal fade';
                 modal.innerHTML = `
                     <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">
-                                    <i class="fas fa-robot me-2"></i>Resumo da Conversa
-                                </h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <div class="modal-content" style="background:#161b22;border:1px solid #30363d;color:#e6edf3">
+                            <div class="modal-header" style="border-color:#30363d">
+                                <h5 class="modal-title"><i class="fas fa-robot me-2 text-info"></i>Resumo da Conversa</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
-                                <h6 class="text-primary mb-3">Dados do Cliente</h6>
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <strong>Nome:</strong> ${result.summary.nome || 'Não informado'}
-                                    </div>
-                                    <div class="col-md-6">
-                                        <strong>Telefone:</strong> ${result.summary.telefone || 'Não informado'}
-                                    </div>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6"><span class="text-muted" style="font-size:.75rem">NOME</span><div class="fw-semibold">${s.nome || '—'}</div></div>
+                                    <div class="col-md-6"><span class="text-muted" style="font-size:.75rem">TELEFONE</span><div class="fw-semibold">${s.telefone || '—'}</div></div>
+                                    <div class="col-md-6"><span class="text-muted" style="font-size:.75rem">SITUAÇÃO PARTO</span><div class="fw-semibold">${s.situacao_parto || '—'}</div></div>
+                                    <div class="col-md-6"><span class="text-muted" style="font-size:.75rem">SITUAÇÃO TRABALHO</span><div class="fw-semibold">${s.situacao_trabalho || '—'}</div></div>
                                 </div>
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <strong>Situação Parto:</strong> ${result.summary.situacao_parto || 'Não informado'}
-                                    </div>
-                                    <div class="col-md-6">
-                                        <strong>Situação Trabalho:</strong> ${result.summary.situacao_trabalho || 'Não informado'}
-                                    </div>
-                                </div>
-                                
-                                <h6 class="text-primary mb-3">Resumo do Atendimento</h6>
-                                <div class="alert alert-info">
-                                    ${result.summary.resumo_atendimento}
-                                </div>
-                                
-                                <h6 class="text-primary mb-3">Próximos Passos</h6>
-                                <div class="alert alert-success">
-                                    ${result.summary.proximos_passos}
-                                </div>
-                                
-                                <h6 class="text-primary mb-3">Problemas Identificados</h6>
-                                <div class="alert alert-warning">
-                                    ${result.summary.problemas || 'Nenhum problema identificado'}
-                                </div>
+                                <hr style="border-color:#30363d">
+                                <p class="text-muted mb-1" style="font-size:.75rem">RESUMO DO ATENDIMENTO</p>
+                                <div class="p-3 rounded mb-3" style="background:#0d1117;border:1px solid #30363d;font-size:.9rem">${s.resumo_atendimento || '—'}</div>
+                                <p class="text-muted mb-1" style="font-size:.75rem">PRÓXIMOS PASSOS</p>
+                                <div class="p-3 rounded mb-3" style="background:#0d1117;border:1px solid #238636;font-size:.9rem">${s.proximos_passos || '—'}</div>
+                                <p class="text-muted mb-1" style="font-size:.75rem">PROBLEMAS IDENTIFICADOS</p>
+                                <div class="p-3 rounded" style="background:#0d1117;border:1px solid #9e6a03;font-size:.9rem">${s.problemas || 'Nenhum problema identificado'}</div>
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                                <button type="button" class="btn btn-primary" onclick="exportSummary()">
-                                    <i class="fas fa-download me-1"></i>Exportar Resumo
+                            <div class="modal-footer" style="border-color:#30363d">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                                <button type="button" class="btn btn-success" onclick="exportSummary()">
+                                    <i class="fas fa-download me-1"></i>Exportar JSON
                                 </button>
                             </div>
                         </div>
-                    </div>
-                `;
-                
+                    </div>`;
                 document.body.appendChild(modal);
                 const bsModal = new bootstrap.Modal(modal);
                 bsModal.show();
-                
-                // Remover modal do DOM quando fechado
-                modal.addEventListener('hidden.bs.modal', () => {
-                    document.body.removeChild(modal);
-                });
-                
+                modal.addEventListener('hidden.bs.modal', () => modal.remove());
             } else {
-                showAlert('danger', '❌ Erro ao gerar resumo: ' + (result.message || 'Erro desconhecido'));
+                showAdminAlert('danger', '❌ ' + (result.message || 'Erro ao gerar resumo'));
             }
-        } catch (error) {
-            console.error('Erro ao gerar resumo:', error);
-            showAlert('danger', '❌ Erro de conexão ao gerar resumo');
+        } catch (e) {
+            showAdminAlert('danger', '❌ Erro de conexão ao gerar resumo.');
         }
     }
 
-    // ─── Função para exportar resumo ───────────────────────────────────────────────
+    // ─── Exportar Resumo (global) ─────────────────────────────────────────────
     async function exportSummary() {
-        const conversationId = "{{ conversation.id }}";
-        
         try {
             const response = await fetch(`/admin/conversas/${conversationId}/exportar`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
-            
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `resumo_conversa_${conversationId}.json`;
+                a.download = `resumo_${conversationId}.json`;
                 document.body.appendChild(a);
                 a.click();
-                document.body.removeChild(a);
+                a.remove();
                 window.URL.revokeObjectURL(url);
-                
-                showAlert('success', '✅ Resumo exportado com sucesso!');
+                showAdminAlert('success', '✅ Resumo exportado!');
             } else {
-                showAlert('danger', '❌ Erro ao exportar resumo');
+                showAdminAlert('danger', '❌ Erro ao exportar resumo');
             }
-        } catch (error) {
-            console.error('Erro ao exportar:', error);
-            showAlert('danger', '❌ Erro de conexão ao exportar');
+        } catch (e) {
+            showAdminAlert('danger', '❌ Erro de conexão ao exportar.');
         }
     }
-});
 </script>
 {% endblock %}
 

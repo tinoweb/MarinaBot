@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from functools import wraps
 import os
+from app.config.database import get_db_connection
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -39,8 +40,89 @@ def logout():
 @admin_bp.route('/')
 @login_required
 def dashboard():
-    """Dashboard principal do painel administrativo"""
-    return render_template('admin/dashboard.html')
+    """Dashboard principal com dados reais do banco."""
+    stats = {
+        'total': 0, 'active': 0, 'closed': 0,
+        'qualificadas': 0, 'aguardando_docs': 0, 'descarte': 0,
+        'hoje': 0, 'semana': []
+    }
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("SELECT COUNT(*) AS n FROM chat_sessions")
+        stats['total'] = (cursor.fetchone() or {}).get('n', 0)
+
+        cursor.execute("SELECT COUNT(*) AS n FROM chat_sessions WHERE status='active'")
+        stats['active'] = (cursor.fetchone() or {}).get('n', 0)
+
+        cursor.execute("SELECT COUNT(*) AS n FROM chat_sessions WHERE status='closed'")
+        stats['closed'] = (cursor.fetchone() or {}).get('n', 0)
+
+        cursor.execute("SELECT COUNT(*) AS n FROM chat_sessions WHERE qualificacao='qualificada'")
+        stats['qualificadas'] = (cursor.fetchone() or {}).get('n', 0)
+
+        cursor.execute("SELECT COUNT(*) AS n FROM chat_sessions WHERE qualificacao='aguardando_docs'")
+        stats['aguardando_docs'] = (cursor.fetchone() or {}).get('n', 0)
+
+        cursor.execute("SELECT COUNT(*) AS n FROM chat_sessions WHERE qualificacao IN ('descarte_1','descarte_2')")
+        stats['descarte'] = (cursor.fetchone() or {}).get('n', 0)
+
+        cursor.execute("SELECT COUNT(*) AS n FROM chat_sessions WHERE DATE(created_at)=CURDATE()")
+        stats['hoje'] = (cursor.fetchone() or {}).get('n', 0)
+
+        cursor.execute("""
+            SELECT DATE(created_at) AS dia, COUNT(*) AS total
+            FROM chat_sessions
+            WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+            GROUP BY dia ORDER BY dia ASC
+        """)
+        stats['semana'] = [{'dia': str(r['dia']), 'total': r['total']} for r in cursor.fetchall()]
+
+        cursor.execute("""
+            SELECT COUNT(*) AS n FROM chat_sessions
+            WHERE status='active' AND ia_pausada=0
+              AND ultimo_contato_at IS NOT NULL
+              AND ultimo_contato_at < NOW() - INTERVAL 2 HOUR
+        """)
+        stats['inativos_2h'] = (cursor.fetchone() or {}).get('n', 0)
+
+        cursor.execute("""
+            SELECT cs.*, ud_nome.value AS nome_display
+            FROM chat_sessions cs
+            LEFT JOIN user_data ud_nome ON ud_nome.session_id=cs.id
+                AND ud_nome.key_name IN ('nome_completo','nome','nome_wpp')
+            ORDER BY cs.updated_at DESC LIMIT 10
+        """)
+        stats['recentes'] = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"[Dashboard] Erro ao carregar stats: {e}")
+        stats['recentes'] = []
+
+    return render_template('admin/dashboard.html', stats=stats)
+
+
+@admin_bp.route('/dashboard/stats')
+@login_required
+def dashboard_stats():
+    """API JSON com estatísticas em tempo real para polling."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT COUNT(*) AS n FROM chat_sessions")
+        total = (cursor.fetchone() or {}).get('n', 0)
+        cursor.execute("SELECT COUNT(*) AS n FROM chat_sessions WHERE status='active'")
+        active = (cursor.fetchone() or {}).get('n', 0)
+        cursor.execute("SELECT COUNT(*) AS n FROM chat_sessions WHERE unread_count > 0")
+        unread = (cursor.fetchone() or {}).get('n', 0)
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'success', 'total': total, 'active': active, 'unread': unread})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @admin_bp.route('/conversas')
 @login_required
@@ -111,6 +193,11 @@ def view_conversation(conversation_id):
     conversation['name_display'] = (
         ud.get('nome_completo') or ud.get('nome') or ud.get('nome_wpp') or 'Não informado'
     )
+
+    # Campos de gestão profissional
+    conversation['ia_pausada'] = chat_session.ia_pausada
+    conversation['qualificacao'] = chat_session.qualificacao or 'pendente'
+    conversation['etapa_atual'] = chat_session.etapa_atual or 1
 
     # Marca mensagens como lidas
     try:
@@ -307,15 +394,15 @@ def get_conversation_updates():
 @login_required
 def settings():
     """Configurações do sistema"""
-    from app.config.database import get_db_connection
-
     # Configurações padrão
     defaults = {
-        'bot_name': 'AtendBot',
-        'welcome_message': 'Olá! Sou o AtendBot, seu assistente virtual. Como posso te ajudar hoje?',
-        'system_prompt': 'Você é um assistente virtual útil e profissional. Responda sempre em português.',
-        'ai_model': 'gpt-3.5-turbo',
-        'temperature': '0.7',
+        'bot_name': 'Assistente da Dra. Marina',
+        'welcome_message': 'Olá! Aqui é a assistente da Dra. Marina Marques, advogada especialista em benefícios do INSS.\n\nMe conta: com qual benefício posso te ajudar hoje?',
+        'system_prompt': '',
+        'ai_model': 'gpt-4o-mini',
+        'temperature': '0.4',
+        'instagram_handle': '@drainss',
+        'followup_enabled': 'true',
         'whatsapp_number': '',
         'session_name': 'marina_bot_session'
     }
@@ -331,8 +418,7 @@ def settings():
             conn.close()
 
             for row in rows:
-                if row['setting_key'] in defaults:
-                    defaults[row['setting_key']] = row['setting_value']
+                defaults[row['setting_key']] = row['setting_value']
         except Exception as e:
             print(f"[Settings] Erro ao carregar configurações: {e}")
 
@@ -360,7 +446,9 @@ def settings():
                 'welcome_message',
                 'system_prompt',
                 'ai_model',
-                'temperature'
+                'temperature',
+                'instagram_handle',
+                'followup_enabled',
             ]
 
             for key in settings_to_save:
@@ -635,25 +723,29 @@ def get_lead_details(lead_id):
         session = ChatSession.get_session(lead_id)
         if not session:
             return jsonify({'status': 'error', 'message': 'Lead não encontrado'}), 404
-        
+
+        ud = session.get('user_data', {})
+
         lead_data = {
             'id': session.get('id'),
             'user_id': session.get('user_id'),
-            'nome': session.get('user_data', {}).get('nome_completo'),
-            'idade': session.get('user_data', {}).get('idade'),
-            'real_phone': session.get('user_data', {}).get('real_phone'),
-            'status': session.get('status', 'new'),
-            'situacao_parto': session.get('user_data', {}).get('situacao_parto'),
-            'situacao_trabalho': session.get('user_data', {}).get('situacao_trabalho'),
-            'tentativa_anterior': session.get('user_data', {}).get('tentativa_anterior'),
-            'created_at': session.get('created_at'),
-            'updated_at': session.get('updated_at'),
-            'user_data': session.get('user_data', {}),
-            'messages': session.get('messages', [])
+            'real_phone': ud.get('real_phone'),
+            'nome': ud.get('nome_completo') or ud.get('nome') or ud.get('nome_wpp'),
+            'idade': ud.get('idade'),
+            'status': session.get('status', 'active'),
+            'ia_pausada': session.get('ia_pausada', 0),
+            'qualificacao': session.get('qualificacao') or 'pendente',
+            'etapa_atual': session.get('etapa_atual', 1),
+            'situacao_parto': ud.get('situacao_parto'),
+            'situacao_trabalho': ud.get('situacao_trabalho'),
+            'tentativa_anterior': ud.get('tentativa_anterior'),
+            'created_at': str(session.get('created_at', '')),
+            'updated_at': str(session.get('updated_at', '')),
+            'user_data': ud,
         }
-        
+
         return jsonify({'status': 'success', 'data': lead_data})
-        
+
     except Exception as e:
         print(f"[Lead] Erro ao obter detalhes: {e}")
         return jsonify({'status': 'error', 'message': 'Erro ao obter detalhes do lead'}), 500
@@ -781,3 +873,412 @@ def export_leads():
     except Exception as e:
         print(f"[Lead] Erro ao exportar: {e}")
         return jsonify({'status': 'error', 'message': 'Erro ao exportar leads'}), 500
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CONTROLE DA IA POR CONVERSA
+# ──────────────────────────────────────────────────────────────────────────────
+
+@admin_bp.route('/conversas/<conversation_id>/toggle-ia', methods=['POST'])
+@login_required
+def toggle_ia(conversation_id):
+    """Liga/desliga a IA para uma conversa específica."""
+    from app.models.chat_model import ChatSession
+    try:
+        session_data = ChatSession.get_session(conversation_id)
+        if not session_data:
+            return jsonify({'status': 'error', 'message': 'Conversa não encontrada'}), 404
+
+        novo_estado = 0 if session_data.get('ia_pausada', 0) else 1
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE chat_sessions SET ia_pausada = %s WHERE id = %s",
+            (novo_estado, conversation_id)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        label = 'pausada' if novo_estado else 'ativa'
+        return jsonify({
+            'status': 'success',
+            'ia_pausada': novo_estado,
+            'message': f'IA {label} para esta conversa.'
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@admin_bp.route('/conversas/<conversation_id>/qualificacao', methods=['POST'])
+@login_required
+def update_qualificacao(conversation_id):
+    """Atualiza o status de qualificação de uma conversa."""
+    data = request.get_json() or {}
+    qualificacao = data.get('qualificacao', '').strip()
+
+    VALORES_VALIDOS = {
+        'pendente', 'qualificada', 'descarte_1', 'descarte_2',
+        'aguardando_docs', 'docs_recebidos', 'fechamento', 'pos_venda'
+    }
+    if qualificacao not in VALORES_VALIDOS:
+        return jsonify({'status': 'error', 'message': 'Valor inválido'}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE chat_sessions SET qualificacao = %s WHERE id = %s",
+            (qualificacao, conversation_id)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'success', 'qualificacao': qualificacao})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@admin_bp.route('/templates', methods=['GET'])
+@login_required
+def get_templates():
+    """Retorna os templates de mensagens rápidas."""
+    from app.models.ai_model import _get_ai_setting
+    instagram = _get_ai_setting('instagram_handle', '@drainss')
+
+    templates = [
+        {
+            'id': 'honorarios',
+            'label': '💰 Honorários',
+            'text': (
+                "Nossa assessoria trabalha com honorários de 30% sobre o valor do benefício, "
+                "cobrados apenas em caso de êxito — sem custos antecipados para você.\n\n"
+                "Ou seja: você só paga se ganhar. ✅"
+            )
+        },
+        {
+            'id': 'documentos',
+            'label': '📎 Documentos Necessários',
+            'text': (
+                "Para darmos início ao processo, precisamos dos seguintes documentos:\n\n"
+                "📄 *Documentos básicos:*\n"
+                "• RG e CPF\n"
+                "• Comprovante de residência\n"
+                "• Carteira de trabalho (ou extrato do CNIS pelo Gov.br)\n"
+                "• Certidão de nascimento do bebê ou declaração hospitalar\n\n"
+                "Você consegue reunir esses documentos? 😊"
+            )
+        },
+        {
+            'id': 'encaminhar_dra',
+            'label': '👩‍⚖️ Encaminhar para Dra. Marina',
+            'text': (
+                "Ótimo! Vou encaminhar o seu caso diretamente para a Dra. Marina. "
+                "Ela vai analisar e retornar o mais breve possível. 👩‍⚖️\n\n"
+                f"Enquanto isso, você pode acompanhar nosso trabalho no Instagram: {instagram}"
+            )
+        },
+        {
+            'id': 'followup_1h',
+            'label': '🔔 Follow-up (Recuperação)',
+            'text': (
+                "Oi! Tudo bem por aí?\n\n"
+                "Vi que nossa conversa ficou por aqui. Queria saber se ficou "
+                "alguma dúvida que posso ajudar. 😊\n\n"
+                "Estou à disposição!"
+            )
+        },
+        {
+            'id': 'followup_24h',
+            'label': '⚠️ Follow-up (Urgência)',
+            'text': (
+                "Olá! Passando para lembrar que o Salário Maternidade tem prazo.\n\n"
+                "Quanto mais perto do parto, menos tempo para garantir o benefício "
+                "com segurança.\n\n"
+                "A Dra. Marina ainda consegue analisar o seu caso — mas o ideal é "
+                "agir agora. ✅\n\n"
+                "Quer que eu encaminhe para ela?"
+            )
+        },
+        {
+            'id': 'prazo_urgente',
+            'label': '🚨 Prazo Urgente (pós-parto)',
+            'text': (
+                "O prazo para garantir o benefício vai até o dia 15 do mês seguinte "
+                "ao nascimento.\n\n"
+                "A Dra. Marina ainda consegue analisar — mas precisa ser agora.\n\n"
+                "Quer que eu encaminhe? ✅"
+            )
+        },
+    ]
+    return jsonify({'status': 'success', 'templates': templates})
+
+
+# ─── NOTAS INTERNAS ───────────────────────────────────────────────────────────
+
+@admin_bp.route('/conversas/<int:conversation_id>/notes', methods=['GET'])
+@login_required
+def get_notes(conversation_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            "SELECT id, note, created_at FROM conversation_notes WHERE session_id = %s ORDER BY created_at DESC",
+            (conversation_id,)
+        )
+        notes = cur.fetchall()
+        cur.close(); conn.close()
+        for n in notes:
+            if n.get('created_at'):
+                n['created_at'] = n['created_at'].strftime('%d/%m/%Y %H:%M')
+        return jsonify({'status': 'success', 'notes': notes})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@admin_bp.route('/conversas/<int:conversation_id>/notes', methods=['POST'])
+@login_required
+def add_note(conversation_id):
+    data = request.get_json() or {}
+    note_text = (data.get('note') or '').strip()
+    if not note_text:
+        return jsonify({'status': 'error', 'message': 'Nota vazia'}), 400
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO conversation_notes (session_id, note) VALUES (%s, %s)",
+            (conversation_id, note_text)
+        )
+        note_id = cur.lastrowid
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({'status': 'success', 'id': note_id})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@admin_bp.route('/conversas/<int:conversation_id>/notes/<int:note_id>', methods=['DELETE'])
+@login_required
+def delete_note(conversation_id, note_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM conversation_notes WHERE id = %s AND session_id = %s",
+            (note_id, conversation_id)
+        )
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+# ─── CHECKLIST DE DOCUMENTOS ─────────────────────────────────────────────────
+
+DOCS_PADRAO = [
+    ('rg_cpf',              'RG / CPF'),
+    ('comprovante_end',     'Comprovante de Residência'),
+    ('ctps_cnis',           'Carteira de Trabalho / CNIS'),
+    ('certidao_nascimento', 'Certidão de Nasc. do Bebê'),
+    ('declaracao_parto',    'Declaração de Nascido Vivo'),
+    ('comprovante_inss',    'Comprovante de Contribuição INSS'),
+]
+
+
+@admin_bp.route('/conversas/<int:conversation_id>/checklist', methods=['GET'])
+@login_required
+def get_checklist(conversation_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            "SELECT doc_type, checked FROM document_checklist WHERE session_id = %s",
+            (conversation_id,)
+        )
+        rows = {r['doc_type']: r['checked'] for r in cur.fetchall()}
+        cur.close(); conn.close()
+        result = [
+            {'key': k, 'label': lbl, 'checked': bool(rows.get(k, 0))}
+            for k, lbl in DOCS_PADRAO
+        ]
+        return jsonify({'status': 'success', 'checklist': result})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@admin_bp.route('/conversas/<int:conversation_id>/checklist', methods=['POST'])
+@login_required
+def update_checklist(conversation_id):
+    data = request.get_json() or {}
+    doc_type = data.get('doc_type')
+    checked = 1 if data.get('checked') else 0
+    if not doc_type:
+        return jsonify({'status': 'error', 'message': 'doc_type obrigatório'}), 400
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO document_checklist (session_id, doc_type, checked) VALUES (%s, %s, %s) "
+            "ON DUPLICATE KEY UPDATE checked = %s",
+            (conversation_id, doc_type, checked, checked)
+        )
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+# ─── FOLLOW-UP AGENDADO MANUAL ────────────────────────────────────────────────
+
+@admin_bp.route('/conversas/<int:conversation_id>/schedule-followup', methods=['GET'])
+@login_required
+def get_scheduled_followups(conversation_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            "SELECT id, scheduled_at, message, sent FROM scheduled_followups "
+            "WHERE session_id = %s ORDER BY scheduled_at ASC",
+            (conversation_id,)
+        )
+        rows = cur.fetchall()
+        cur.close(); conn.close()
+        for r in rows:
+            if r.get('scheduled_at'):
+                r['scheduled_at'] = r['scheduled_at'].strftime('%d/%m/%Y %H:%M')
+        return jsonify({'status': 'success', 'followups': rows})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@admin_bp.route('/conversas/<int:conversation_id>/schedule-followup', methods=['POST'])
+@login_required
+def schedule_followup(conversation_id):
+    data = request.get_json() or {}
+    scheduled_at = data.get('scheduled_at')
+    message = (data.get('message') or '').strip()
+    if not scheduled_at or not message:
+        return jsonify({'status': 'error', 'message': 'Data e mensagem obrigatórios'}), 400
+    try:
+        from datetime import datetime as _dt
+        dt = _dt.strptime(scheduled_at, '%Y-%m-%dT%H:%M')
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO scheduled_followups (session_id, scheduled_at, message) VALUES (%s, %s, %s)",
+            (conversation_id, dt, message)
+        )
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@admin_bp.route('/conversas/<int:conversation_id>/schedule-followup/<int:sf_id>', methods=['DELETE'])
+@login_required
+def cancel_scheduled_followup(conversation_id, sf_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM scheduled_followups WHERE id = %s AND session_id = %s AND sent = 0",
+            (sf_id, conversation_id)
+        )
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+# ─── USO E CUSTO OPENAI ───────────────────────────────────────────────────────
+
+@admin_bp.route('/openai/usage', methods=['GET'])
+@login_required
+def openai_usage():
+    """Retorna estatísticas de uso e custo estimado dos tokens da OpenAI."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(dictionary=True)
+
+        # Resumo total
+        cur.execute("""
+            SELECT
+                COUNT(*) as total_requests,
+                SUM(prompt_tokens) as total_prompt,
+                SUM(completion_tokens) as total_completion,
+                SUM(total_tokens) as total_tokens,
+                SUM(estimated_cost_usd) as total_cost,
+                MIN(created_at) as first_request,
+                MAX(created_at) as last_request
+            FROM token_usage
+        """)
+        total = cur.fetchone()
+
+        # Uso do mês atual
+        cur.execute("""
+            SELECT
+                SUM(total_tokens) as tokens_mes,
+                SUM(estimated_cost_usd) as custo_mes
+            FROM token_usage
+            WHERE YEAR(created_at) = YEAR(NOW()) AND MONTH(created_at) = MONTH(NOW())
+        """)
+        mes = cur.fetchone()
+
+        # Uso dos últimos 7 dias (por dia)
+        cur.execute("""
+            SELECT
+                DATE(created_at) as dia,
+                SUM(total_tokens) as tokens,
+                SUM(estimated_cost_usd) as custo
+            FROM token_usage
+            WHERE created_at >= NOW() - INTERVAL 7 DAY
+            GROUP BY DATE(created_at)
+            ORDER BY dia ASC
+        """)
+        por_dia = cur.fetchall()
+        for r in por_dia:
+            if r.get('dia'):
+                r['dia'] = str(r['dia'])
+
+        # Por modelo
+        cur.execute("""
+            SELECT model,
+                   SUM(total_tokens) as tokens,
+                   SUM(estimated_cost_usd) as custo
+            FROM token_usage
+            GROUP BY model
+            ORDER BY custo DESC
+        """)
+        por_modelo = cur.fetchall()
+
+        cur.close(); conn.close()
+
+        def _safe(val, decimals=2):
+            if val is None:
+                return 0
+            try:
+                return round(float(val), decimals)
+            except Exception:
+                return 0
+
+        return jsonify({
+            'status': 'success',
+            'total': {
+                'requests': total.get('total_requests', 0) or 0,
+                'prompt_tokens': total.get('total_prompt', 0) or 0,
+                'completion_tokens': total.get('total_completion', 0) or 0,
+                'total_tokens': total.get('total_tokens', 0) or 0,
+                'cost_usd': _safe(total.get('total_cost'), 4),
+                'first_request': str(total.get('first_request', '')) if total.get('first_request') else None,
+                'last_request': str(total.get('last_request', '')) if total.get('last_request') else None,
+            },
+            'mes_atual': {
+                'tokens': mes.get('tokens_mes', 0) or 0,
+                'cost_usd': _safe(mes.get('custo_mes'), 4),
+            },
+            'por_dia': por_dia,
+            'por_modelo': por_modelo,
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500

@@ -3,8 +3,23 @@ from app.models.chat_model import ChatSession
 from app.models.ai_model import get_ai_response
 from app.models.whatsapp_model import WhatsAppConfig
 import re
+from collections import deque
 
 webhook_bp = Blueprint('webhook', __name__)
+
+# Proteção contra webhooks duplicados (guarda os últimos 200 IDs processados)
+_processed_ids: set = set()
+_processed_ids_queue: deque = deque(maxlen=200)
+
+
+def _is_duplicate(message_id: str) -> bool:
+    if not message_id or message_id in _processed_ids:
+        return bool(message_id)
+    _processed_ids.add(message_id)
+    if len(_processed_ids_queue) == 200:
+        _processed_ids.discard(_processed_ids_queue[0])
+    _processed_ids_queue.append(message_id)
+    return False
 
 
 @webhook_bp.route('/webhook/wppconnect', methods=['POST'])
@@ -39,12 +54,15 @@ def wppconnect_webhook():
         return jsonify({'status': 'ok'})
 
     if event.lower() in ('onmessage', 'message'):
-        # WPP Connect envia a mensagem diretamente no payload, não dentro de 'message'
         message = data if data.get('content') or data.get('body') else data.get('message', {})
-        # Ignora mensagens enviadas pelo próprio bot para evitar loop
         if message.get('fromMe'):
             print(f"[Webhook] Mensagem própria (fromMe=True) ignorada.")
             return jsonify({'status': 'ok', 'note': 'fromMe ignored'})
+        # Proteção contra webhook duplicado
+        msg_id = message.get('id') or message.get('msgId') or ''
+        if _is_duplicate(msg_id):
+            print(f"[Webhook] Mensagem duplicada ignorada: {msg_id}")
+            return jsonify({'status': 'ok', 'note': 'duplicate ignored'})
         _handle_incoming_message(session, message)
         return jsonify({'status': 'ok'})
 
@@ -184,19 +202,25 @@ def _handle_incoming_message(session, message):
             # Verifica se o número é válido no WhatsApp (diagnóstico)
             wpp.check_number_status(real_phone.split('@')[0], session_name=session)
 
-        # 3. Processa IA
+        # 3. Adiciona mensagem do usuário e extrai dados
         chat_session.add_message('user', text)
 
-        # Extrai dados da mensagem do usuário antes de chamar a IA
         from app.models.ai_model import _extract_data_from_user_message
         _extract_data_from_user_message(chat_session, text)
 
+        # 4. Gera resposta da IA (retorna None se IA estiver pausada)
         ai_response = get_ai_response(chat_session)
+
+        if ai_response is None:
+            # IA pausada: só salva a mensagem, sem enviar resposta automática
+            chat_session.save()
+            print(f"[Webhook] IA pausada para {sender_id}. Mensagem salva sem resposta automática.")
+            return
+
         chat_session.add_message('assistant', ai_response)
         chat_session.save()
 
-        # 4. Envia resposta
-        # Determina o target_id: para @lid usa o real_phone se disponível
+        # 5. Envia resposta ao cliente
         if '@lid' in sender_id and real_phone:
             target_id = real_phone
             print(f"[Webhook] @lid detectado. Usando número real: {target_id}")
@@ -206,13 +230,11 @@ def _handle_incoming_message(session, message):
         print(f"[Webhook] Respondendo para: {target_id}")
         result = wpp.send_message(target_id, ai_response, session_name=session)
 
-        # Garante que result é dict para chamar .get()
         if not isinstance(result, dict):
             result = {'status': 'error', 'message': str(result)}
 
         if result.get('status') != 'success':
             print(f"[Webhook] Envio direto falhou: {result.get('message', '?')}")
-            # Para @lid sem real_phone: tenta send-reply usando o message_id original
             if '@lid' in sender_id and message_id:
                 print(f"[Webhook] Tentando send-reply como fallback para @lid...")
                 reply_result = wpp.send_reply(sender_id, ai_response, message_id, session_name=session)

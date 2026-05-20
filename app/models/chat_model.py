@@ -25,6 +25,10 @@ class ChatSession:
         self.unread_count = 0
         self.last_message = ""
         self.session_id = None
+        self.ia_pausada = 0
+        self.qualificacao = None
+        self.etapa_atual = 1
+        self.ultimo_contato_at = None
         
         # Carrega sessão existente ou cria uma nova
         self._load_session()
@@ -49,6 +53,10 @@ class ChatSession:
                 self.status = session_data['status']
                 self.unread_count = session_data.get('unread_count', 0)
                 self.last_message = session_data.get('last_message', "")
+                self.ia_pausada = session_data.get('ia_pausada', 0)
+                self.qualificacao = session_data.get('qualificacao')
+                self.etapa_atual = session_data.get('etapa_atual', 1)
+                self.ultimo_contato_at = session_data.get('ultimo_contato_at')
                 
                 # Carrega mensagens
                 cursor.execute("SELECT * FROM chat_messages WHERE session_id = %s ORDER BY timestamp ASC", (self.session_id,))
@@ -98,6 +106,7 @@ class ChatSession:
         
         if role == 'user':
             self.unread_count += 1
+            self.ultimo_contato_at = timestamp
         else:
             self.unread_count = 0  # Reseta quando o bot ou admin responde
             
@@ -205,41 +214,43 @@ class ChatSession:
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
-            
+
             if self.session_id:
-                # Atualiza a sessão existente
                 cursor.execute(
-                    "UPDATE chat_sessions SET updated_at = %s, status = %s, unread_count = %s, last_message = %s WHERE id = %s",
-                    (self.updated_at, self.status, self.unread_count, self.last_message, self.session_id)
+                    "UPDATE chat_sessions SET updated_at = %s, status = %s, unread_count = %s, "
+                    "last_message = %s, ia_pausada = %s, qualificacao = %s, etapa_atual = %s, "
+                    "ultimo_contato_at = %s WHERE id = %s",
+                    (self.updated_at, self.status, self.unread_count, self.last_message,
+                     self.ia_pausada, self.qualificacao, self.etapa_atual,
+                     self.ultimo_contato_at, self.session_id)
                 )
             else:
-                # Insere uma nova sessão
                 cursor.execute(
-                    "INSERT INTO chat_sessions (user_id, created_at, updated_at, status, unread_count, last_message) VALUES (%s, %s, %s, %s, %s, %s)",
-                    (self.user_id, self.created_at, self.updated_at, self.status, self.unread_count, self.last_message)
+                    "INSERT INTO chat_sessions (user_id, created_at, updated_at, status, unread_count, "
+                    "last_message, ia_pausada, qualificacao, etapa_atual, ultimo_contato_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (self.user_id, self.created_at, self.updated_at, self.status, self.unread_count,
+                     self.last_message, self.ia_pausada, self.qualificacao, self.etapa_atual,
+                     self.ultimo_contato_at)
                 )
-                
-                # Obtém o ID da sessão inserida
                 self.session_id = cursor.lastrowid
-                
-                # Insere as mensagens existentes
+
                 for msg in self.messages:
                     cursor.execute(
                         "INSERT INTO chat_messages (session_id, role, content, timestamp) VALUES (%s, %s, %s, %s)",
                         (self.session_id, msg["role"], msg["content"], msg["timestamp"])
                     )
-                
-                # Insere os dados do usuário existentes
+
                 for key, value in self.user_data.items():
                     cursor.execute(
                         "INSERT INTO user_data (session_id, key_name, value) VALUES (%s, %s, %s)",
                         (self.session_id, key, str(value))
                     )
-            
+
             conn.commit()
             cursor.close()
             conn.close()
-            
+
         except Exception as e:
             print(f"Erro ao salvar sessão: {e}")
     

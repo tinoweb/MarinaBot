@@ -3,54 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AtendBot - Assistente Virtual Inteligente</title>
+    <meta name="description" content="AtendBot — Assistente virtual com IA para WhatsApp. Qualifique leads, automatize atendimentos e gerencie clientes 24h por dia para qualquer segmento.">
+    <title>AtendBot — Atendimento Inteligente para Qualquer Negócio</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg">
+
+    <!-- ════════════════════ NAVBAR ════════════════════ -->
+    <nav class="navbar navbar-expand-lg navbar-sticky" id="mainNav">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('main.index') }}">
                 <span class="brand-icon"><i class="fas fa-robot"></i></span>
                 AtendBot
             </a>
-            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="filter: invert(0.7);">
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="filter:invert(0.7)">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="{{ url_for('main.index') }}">Início</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.about') }}">Sobre</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.terms') }}">Termos</a>
-                    </li>
+                <ul class="navbar-nav mx-auto">
+                    <li class="nav-item"><a class="nav-link" href="#funcionalidades">Funcionalidades</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#segmentos">Segmentos</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#como-funciona">Como Funciona</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('main.about') }}">Sobre</a></li>
                 </ul>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{{ url_for('admin.login') }}" class="btn-admin-nav">
+                        <i class="fas fa-lock me-1"></i>Acessar Painel
+                    </a>
+                </div>
             </div>
         </div>
     </nav>
 
-    <!-- Hero -->
-    <header class="hero">
-        <div class="container">
+    <!-- ════════════════════ HERO ════════════════════ -->
+    <header class="hero" id="hero">
+        <div class="hero-bg-glow hero-glow-1"></div>
+        <div class="hero-bg-glow hero-glow-2"></div>
+        <div class="container position-relative">
             <div class="row align-items-center g-5">
                 <div class="col-lg-6">
-                    <h1 class="hero-title">Atendimento inteligente no WhatsApp, 24 horas por dia</h1>
+                    <div class="hero-badge mb-4">
+                        <span class="pulse-dot"></span>
+                        IA Ativa · Respondendo agora
+                    </div>
+                    <h1 class="hero-title">
+                        Atendimento inteligente<br>
+                        <span class="hero-title-accent">24h por dia</span>,<br>
+                        para qualquer negócio
+                    </h1>
                     <p class="hero-subtitle">
-                        O AtendBot conecta sua empresa aos clientes de forma automatizada e inteligente. 
-                        Responde dúvidas, coleta informações e qualifica atendimentos sem esforço humano.
+                        Automatize seu atendimento no WhatsApp com Inteligência Artificial. 
+                        Qualifique leads, agende follow-ups, colete documentos e gerencie tudo 
+                        em um painel completo — sem nenhum esforço manual.
                     </p>
-                    <a href="https://wa.me/?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20o%20AtendBot"
-                       class="btn-whatsapp">
-                        <i class="fab fa-whatsapp"></i> Fale conosco pelo WhatsApp
-                    </a>
+                    <div class="hero-actions">
+                        <a href="{{ url_for('admin.login') }}" class="btn-primary-hero">
+                            <i class="fas fa-gauge-high me-2"></i>Acessar Painel Admin
+                        </a>
+                        <a href="#como-funciona" class="btn-secondary-hero">
+                            <i class="fas fa-play-circle me-2"></i>Ver como funciona
+                        </a>
+                    </div>
+                    <div class="hero-stats mt-4">
+                        <div class="hero-stat">
+                            <span class="hero-stat-num">24/7</span>
+                            <span class="hero-stat-label">Disponível</span>
+                        </div>
+                        <div class="hero-stat-divider"></div>
+                        <div class="hero-stat">
+                            <span class="hero-stat-num">&lt;2s</span>
+                            <span class="hero-stat-label">Resposta</span>
+                        </div>
+                        <div class="hero-stat-divider"></div>
+                        <div class="hero-stat">
+                            <span class="hero-stat-num">∞</span>
+                            <span class="hero-stat-label">Simultâneos</span>
+                        </div>
+                        <div class="hero-stat-divider"></div>
+                        <div class="hero-stat">
+                            <span class="hero-stat-num">LGPD</span>
+                            <span class="hero-stat-label">Conformidade</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-lg-6">
+                <div class="col-lg-6 d-flex justify-content-center">
                     <div class="chat-mockup">
                         <div class="chat-header-mock">
                             <div class="chat-avatar-mock"><i class="fas fa-robot"></i></div>
@@ -58,18 +96,35 @@
                                 <div class="chat-name-mock">AtendBot</div>
                                 <div class="chat-online">Online agora</div>
                             </div>
+                            <div class="ms-auto">
+                                <span style="font-size:.7rem;background:rgba(63,185,80,.15);color:#3fb950;border-radius:20px;padding:2px 9px;border:1px solid rgba(63,185,80,.3)">IA ativa</span>
+                            </div>
                         </div>
                         <div class="chat-bubble bot">
-                            Olá! 👋 Sou o AtendBot. Como posso te ajudar hoje?
+                            Olá! 👋 Sou o assistente virtual. Como posso te ajudar hoje?
                             <span class="chat-time">agora</span>
                         </div>
                         <div class="chat-bubble user">
-                            Gostaria de saber mais sobre os serviços disponíveis.
+                            Preciso de informações sobre os serviços.
                             <span class="chat-time">agora</span>
                         </div>
                         <div class="chat-bubble bot">
-                            Claro! Posso te apresentar nossas opções. Para começar, qual é o seu nome? 😊
+                            Claro! Vou te apresentar tudo. Para começar, qual é o seu nome? 😊
                             <span class="chat-time">agora</span>
+                        </div>
+                        <div class="chat-bubble user">
+                            Me chamo João Silva.
+                            <span class="chat-time">agora</span>
+                        </div>
+                        <div class="chat-bubble bot typing-bubble">
+                            <span class="typing-dots"><span></span><span></span><span></span></span>
+                        </div>
+                        <!-- Painel de dados coletados -->
+                        <div class="chat-data-panel mt-3">
+                            <div class="chat-data-label"><i class="fas fa-database me-1"></i>Dados coletados</div>
+                            <div class="chat-data-row"><span>Nome</span><strong>João Silva</strong></div>
+                            <div class="chat-data-row"><span>Etapa</span><strong>Triagem</strong></div>
+                            <div class="chat-data-row"><span>Status</span><strong style="color:#3fb950">Qualificado</strong></div>
                         </div>
                     </div>
                 </div>
@@ -77,116 +132,259 @@
         </div>
     </header>
 
-    <!-- Como funciona -->
-    <section class="section-dark">
+    <!-- ════════════════════ SEGMENTOS ════════════════════ -->
+    <section class="section-segments" id="segmentos">
         <div class="container">
             <div class="text-center mb-5">
-                <h2 class="section-title">Como funciona</h2>
-                <p class="section-subtitle">Simples, rápido e totalmente automatizado</p>
+                <span class="section-badge">Versátil por natureza</span>
+                <h2 class="section-title mt-2">Funciona para qualquer segmento</h2>
+                <p class="section-subtitle">Configure o bot com a personalidade e o script do seu negócio em minutos.</p>
             </div>
-            <div class="row g-4">
-                <div class="col-md-4">
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="fab fa-whatsapp"></i>
+            <div class="row g-3 justify-content-center">
+                <div class="col-6 col-md-4 col-lg-2">
+                    <div class="segment-card">
+                        <div class="segment-icon" style="background:rgba(139,92,246,.15);color:#a78bfa">
+                            <i class="fas fa-gavel"></i>
                         </div>
-                        <h5>1. Cliente envia mensagem</h5>
-                        <p>O cliente inicia a conversa diretamente pelo WhatsApp, sem instalar nada.</p>
+                        <div class="segment-label">Advocacia</div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="fas fa-brain"></i>
+                <div class="col-6 col-md-4 col-lg-2">
+                    <div class="segment-card">
+                        <div class="segment-icon" style="background:rgba(59,130,246,.15);color:#60a5fa">
+                            <i class="fas fa-store"></i>
                         </div>
-                        <h5>2. IA processa e responde</h5>
-                        <p>O AtendBot interpreta a mensagem com inteligência artificial e responde de forma natural.</p>
+                        <div class="segment-label">Comércio</div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="fas fa-chart-line"></i>
+                <div class="col-6 col-md-4 col-lg-2">
+                    <div class="segment-card">
+                        <div class="segment-icon" style="background:rgba(16,185,129,.15);color:#34d399">
+                            <i class="fas fa-stethoscope"></i>
                         </div>
-                        <h5>3. Você acompanha tudo</h5>
-                        <p>Visualize todas as conversas, dados coletados e métricas no painel administrativo.</p>
+                        <div class="segment-label">Saúde</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-4 col-lg-2">
+                    <div class="segment-card">
+                        <div class="segment-icon" style="background:rgba(245,158,11,.15);color:#fbbf24">
+                            <i class="fas fa-graduation-cap"></i>
+                        </div>
+                        <div class="segment-label">Educação</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-4 col-lg-2">
+                    <div class="segment-card">
+                        <div class="segment-icon" style="background:rgba(239,68,68,.15);color:#f87171">
+                            <i class="fas fa-building"></i>
+                        </div>
+                        <div class="segment-label">Imóveis</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-4 col-lg-2">
+                    <div class="segment-card">
+                        <div class="segment-icon" style="background:rgba(20,184,166,.15);color:#2dd4bf">
+                            <i class="fas fa-hand-holding-dollar"></i>
+                        </div>
+                        <div class="segment-label">Finanças</div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Por que usar -->
-    <section class="section-primary">
+    <!-- ════════════════════ FUNCIONALIDADES ════════════════════ -->
+    <section class="section-dark" id="funcionalidades">
+        <div class="container">
+            <div class="text-center mb-5">
+                <span class="section-badge">Painel Completo</span>
+                <h2 class="section-title mt-2">Tudo que você precisa em um só lugar</h2>
+                <p class="section-subtitle">Gestão profissional de atendimentos com IA, sem complicação.</p>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-6 col-lg-4">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fas fa-robot"></i></div>
+                        <h5>IA Conversacional</h5>
+                        <p>Respostas naturais e contextualizadas geradas por GPT. Personalize o script completo do atendimento para o seu negócio.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fas fa-filter"></i></div>
+                        <h5>Qualificação de Leads</h5>
+                        <p>Classifique automaticamente cada contato: qualificado, aguardando documentos, descarte ou fechamento.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fas fa-calendar-check"></i></div>
+                        <h5>Follow-up Automático</h5>
+                        <p>Mensagens de retorno enviadas automaticamente após 1h e 24h de inatividade. Ou agende manualmente com data e hora.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fas fa-file-circle-check"></i></div>
+                        <h5>Checklist de Documentos</h5>
+                        <p>Acompanhe quais documentos foram recebidos de cada cliente com checklist interativo por conversa.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fas fa-sticky-note"></i></div>
+                        <h5>Notas Internas</h5>
+                        <p>Adicione anotações privadas por conversa. Visíveis apenas para a equipe, nunca para o cliente.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fas fa-chart-pie"></i></div>
+                        <h5>Dashboard & Relatórios</h5>
+                        <p>Métricas em tempo real, histórico completo de conversas, custo de IA e alertas de leads inativos.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ════════════════════ COMO FUNCIONA ════════════════════ -->
+    <section class="section-primary" id="como-funciona">
+        <div class="container">
+            <div class="text-center mb-5">
+                <span class="section-badge">Processo</span>
+                <h2 class="section-title mt-2">Como funciona</h2>
+                <p class="section-subtitle">4 etapas simples do primeiro contato ao fechamento.</p>
+            </div>
+            <div class="row g-4 align-items-stretch">
+                <div class="col-md-6 col-lg-3">
+                    <div class="step-card">
+                        <div class="step-number">01</div>
+                        <div class="feature-icon"><i class="fab fa-whatsapp"></i></div>
+                        <h5>Cliente envia mensagem</h5>
+                        <p>O cliente entra em contato pelo WhatsApp. Sem apps, sem cadastros — apenas uma mensagem.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="step-card">
+                        <div class="step-number">02</div>
+                        <div class="feature-icon"><i class="fas fa-brain"></i></div>
+                        <h5>IA responde e qualifica</h5>
+                        <p>O AtendBot interpreta a mensagem, executa o script configurado e classifica o lead automaticamente.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="step-card">
+                        <div class="step-number">03</div>
+                        <div class="feature-icon"><i class="fas fa-user-tie"></i></div>
+                        <h5>Equipe acompanha</h5>
+                        <p>No painel admin você vê todas as conversas, notas, documentos e pode pausar a IA para atender manualmente.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="step-card">
+                        <div class="step-number">04</div>
+                        <div class="feature-icon"><i class="fas fa-handshake"></i></div>
+                        <h5>Fechamento e pós-venda</h5>
+                        <p>Follow-ups automáticos e manuais garantem que nenhum cliente fique sem resposta até o fechamento.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ════════════════════ PAINEL ADMIN CTA ════════════════════ -->
+    <section class="section-cta">
+        <div class="container">
+            <div class="cta-card">
+                <div class="cta-glow"></div>
+                <div class="row align-items-center g-4 position-relative">
+                    <div class="col-lg-8">
+                        <h2 class="cta-title">Acesse o painel administrativo agora</h2>
+                        <p class="cta-subtitle">
+                            Gerencie conversas, configure a IA, visualize métricas e controle cada detalhe do seu atendimento — tudo em um único painel profissional.
+                        </p>
+                        <div class="d-flex flex-wrap gap-3 mt-2">
+                            <div class="cta-check"><i class="fas fa-check-circle me-2"></i>Dashboard com dados em tempo real</div>
+                            <div class="cta-check"><i class="fas fa-check-circle me-2"></i>Gestão completa de leads</div>
+                            <div class="cta-check"><i class="fas fa-check-circle me-2"></i>Controle de uso e custo da IA</div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 text-lg-end text-center">
+                        <a href="{{ url_for('admin.login') }}" class="btn-cta-main">
+                            <i class="fas fa-gauge-high me-2"></i>Entrar no Painel
+                        </a>
+                        <p class="mt-2 mb-0" style="font-size:.78rem;color:#8b949e">Acesso restrito · Credenciais necessárias</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ════════════════════ BENEFÍCIOS ════════════════════ -->
+    <section class="section-dark">
         <div class="container">
             <div class="row align-items-center g-5">
                 <div class="col-lg-6">
-                    <h2 class="section-title mb-4">Por que escolher o AtendBot?</h2>
+                    <span class="section-badge">Vantagens</span>
+                    <h2 class="section-title mt-2 mb-4">Por que escolher o AtendBot?</h2>
                     <div class="benefit-item">
                         <div class="benefit-check"><i class="fas fa-check"></i></div>
                         <div>
-                            <strong>Atendimento 24/7</strong><br>
-                            <span>Nunca perca um cliente — o bot responde a qualquer hora, todos os dias.</span>
+                            <strong>Atendimento 24/7 sem custo extra</strong><br>
+                            <span>O bot responde a qualquer hora sem necessidade de equipe fora do horário comercial.</span>
                         </div>
                     </div>
                     <div class="benefit-item">
                         <div class="benefit-check"><i class="fas fa-check"></i></div>
                         <div>
-                            <strong>Inteligência Artificial</strong><br>
-                            <span>Respostas precisas e contextualizadas geradas por IA de última geração.</span>
+                            <strong>IA treinada com seu script</strong><br>
+                            <span>Configure o tom, o fluxo e as respostas conforme a identidade do seu negócio.</span>
                         </div>
                     </div>
                     <div class="benefit-item">
                         <div class="benefit-check"><i class="fas fa-check"></i></div>
                         <div>
-                            <strong>Fácil de usar</strong><br>
-                            <span>O cliente conversa de forma natural, sem menus ou comandos complicados.</span>
+                            <strong>Zero configuração técnica</strong><br>
+                            <span>Integração com WhatsApp simples e painel web acessível de qualquer dispositivo.</span>
                         </div>
                     </div>
                     <div class="benefit-item">
                         <div class="benefit-check"><i class="fas fa-check"></i></div>
                         <div>
-                            <strong>Dados seguros</strong><br>
-                            <span>Todas as informações são protegidas em conformidade com a LGPD.</span>
+                            <strong>Conformidade com LGPD</strong><br>
+                            <span>Todos os dados coletados são armazenados com segurança dentro da sua própria infraestrutura.</span>
                         </div>
                     </div>
                     <div class="benefit-item">
                         <div class="benefit-check"><i class="fas fa-check"></i></div>
                         <div>
-                            <strong>Painel completo</strong><br>
-                            <span>Acompanhe conversas, métricas e exporte relatórios em tempo real.</span>
+                            <strong>Controle total com IA pausável</strong><br>
+                            <span>Pause a IA com um clique e assuma o atendimento manualmente quando necessário.</span>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-6">
-                    <div class="row g-3">
-                        <div class="col-6">
-                            <div class="feature-card text-center">
-                                <div class="feature-icon mx-auto"><i class="fas fa-clock"></i></div>
-                                <h5>24/7</h5>
-                                <p>Disponível o tempo todo</p>
-                            </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                            <div class="stat-value">24/7</div>
+                            <div class="stat-label">Disponibilidade total</div>
                         </div>
-                        <div class="col-6">
-                            <div class="feature-card text-center">
-                                <div class="feature-icon mx-auto"><i class="fas fa-bolt"></i></div>
-                                <h5>&lt; 2s</h5>
-                                <p>Tempo de resposta</p>
-                            </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-bolt"></i></div>
+                            <div class="stat-value">&lt; 2s</div>
+                            <div class="stat-label">Tempo de resposta</div>
                         </div>
-                        <div class="col-6">
-                            <div class="feature-card text-center">
-                                <div class="feature-icon mx-auto"><i class="fas fa-comments"></i></div>
-                                <h5>∞</h5>
-                                <p>Conversas simultâneas</p>
-                            </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-comments"></i></div>
+                            <div class="stat-value">∞</div>
+                            <div class="stat-label">Conversas simultâneas</div>
                         </div>
-                        <div class="col-6">
-                            <div class="feature-card text-center">
-                                <div class="feature-icon mx-auto"><i class="fas fa-shield-halved"></i></div>
-                                <h5>LGPD</h5>
-                                <p>Dados protegidos</p>
-                            </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-shield-halved"></i></div>
+                            <div class="stat-value">LGPD</div>
+                            <div class="stat-label">Dados protegidos</div>
                         </div>
                     </div>
                 </div>
@@ -194,33 +392,78 @@
         </div>
     </section>
 
-    <!-- Footer -->
+    <!-- ════════════════════ FOOTER ════════════════════ -->
     <footer>
         <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-6 mb-3 mb-md-0">
-                    <div class="footer-brand">
+            <div class="row g-4">
+                <div class="col-lg-4 mb-3 mb-lg-0">
+                    <div class="footer-brand mb-2">
                         <span class="brand-icon"><i class="fas fa-robot"></i></span>
                         AtendBot
                     </div>
-                    <p>Assistente Virtual Inteligente para WhatsApp</p>
+                    <p style="color:#8b949e;font-size:.85rem;line-height:1.7;max-width:280px">
+                        Assistente virtual com IA para WhatsApp. Automatize seu atendimento e escale seu negócio.
+                    </p>
                 </div>
-                <div class="col-md-6 text-md-end">
-                    <ul class="list-inline mb-2">
-                        <li class="list-inline-item">
-                            <a href="{{ url_for('main.terms') }}">Termos de Uso</a>
-                        </li>
-                        <li class="list-inline-item ms-3">
-                            <a href="{{ url_for('main.about') }}">Sobre</a>
-                        </li>
+                <div class="col-6 col-lg-2 offset-lg-2">
+                    <div class="footer-heading">Produto</div>
+                    <ul class="footer-links">
+                        <li><a href="#funcionalidades">Funcionalidades</a></li>
+                        <li><a href="#segmentos">Segmentos</a></li>
+                        <li><a href="#como-funciona">Como Funciona</a></li>
                     </ul>
-                    <p>&copy; 2026 AtendBot. Todos os direitos reservados.</p>
                 </div>
+                <div class="col-6 col-lg-2">
+                    <div class="footer-heading">Empresa</div>
+                    <ul class="footer-links">
+                        <li><a href="{{ url_for('main.about') }}">Sobre nós</a></li>
+                        <li><a href="{{ url_for('main.terms') }}">Termos de Uso</a></li>
+                    </ul>
+                </div>
+                <div class="col-6 col-lg-2">
+                    <div class="footer-heading">Acesso</div>
+                    <ul class="footer-links">
+                        <li>
+                            <a href="{{ url_for('admin.login') }}" style="color:#a78bfa!important;font-weight:600">
+                                <i class="fas fa-lock me-1"></i>Painel Admin
+                            </a>
+                        </li>
+                        <li><a href="{{ url_for('admin.login') }}">Dashboard</a></li>
+                    </ul>
+                </div>
+            </div>
+            <hr style="border-color:#21262d;margin:28px 0 20px">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+                <p style="color:#484f58;font-size:.8rem;margin:0">&copy; 2026 AtendBot. Todos os direitos reservados.</p>
+                <p style="color:#484f58;font-size:.8rem;margin:0">Desenvolvido com <i class="fas fa-heart" style="color:#f85149"></i> e Inteligência Artificial</p>
             </div>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // Navbar sticky shadow on scroll
+        window.addEventListener('scroll', function() {
+            const nav = document.getElementById('mainNav');
+            if (window.scrollY > 20) { nav.classList.add('navbar-scrolled'); }
+            else { nav.classList.remove('navbar-scrolled'); }
+        });
+
+        // Smooth scroll for anchors
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) { e.preventDefault(); target.scrollIntoView({behavior:'smooth', block:'start'}); }
+            });
+        });
+
+        // Typing animation loop
+        let typingVisible = true;
+        setInterval(() => {
+            const tb = document.querySelector('.typing-bubble');
+            if (tb) { tb.style.opacity = typingVisible ? '0.4' : '1'; typingVisible = !typingVisible; }
+        }, 800);
+    </script>
 </body>
 </html>

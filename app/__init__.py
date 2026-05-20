@@ -23,5 +23,12 @@ def create_app():
     app.register_blueprint(webhook_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(whatsapp_bp)
-    
+
+    # Inicia o scheduler de follow-up automático
+    try:
+        from app.services.scheduler_service import start_scheduler
+        start_scheduler()
+    except Exception as e:
+        print(f"[App] Aviso: scheduler não iniciado: {e}")
+
     return app
