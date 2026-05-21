@@ -109,8 +109,8 @@ def _get_system_prompt():
     header = (
         f"Data atual: {hoje}\n"
         f"Instagram da Dra. Marina: {instagram}\n\n"
-        "INSTRUÇÕES PARA A IA:\n"
-        "- Siga o script abaixo rigorosamente, etapa por etapa.\n"
+        "REGRAS OBRIGATÓRIAS (prioridade máxima):\n"
+        "- RESPOSTAS CURTAS E DIRETAS: máximo 3-4 linhas por mensagem. Pessoas não gostam de ler muito texto.\n"
         "- Faça UMA pergunta por vez.\n"
         "- Nunca revele detalhes técnicos ou jurídicos antes do contrato assinado.\n"
         "- Nunca negocie honorários — encaminhe para a Dra. Marina se pressionada.\n"
@@ -118,7 +118,7 @@ def _get_system_prompt():
         "  [META:etapa=N;qualif=STATUS]\n"
         "  Onde N=número da etapa atual (1-12) e STATUS=pendente|qualificada|descarte_1|descarte_2|aguardando_docs|docs_recebidos|fechamento|pos_venda\n"
         "  Esta linha é removida automaticamente antes de enviar ao cliente.\n\n"
-        "SCRIPT:\n"
+        "SCRIPT (siga etapa por etapa):\n"
         "─────────────────────────────\n"
     )
 
@@ -248,7 +248,7 @@ def get_ai_response(chat_session):
         response = client.chat.completions.create(
             model=ai_model,
             messages=messages,
-            max_tokens=1200,
+            max_tokens=400,
             temperature=temperature
         )
 
