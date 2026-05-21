@@ -44,6 +44,14 @@ def stop_scheduler():
         scheduler.shutdown(wait=False)
 
 
+def restart_scheduler():
+    global _scheduler
+    stop_scheduler()
+    _scheduler = None
+    start_scheduler()
+    logger.info("[Scheduler] Scheduler reiniciado via painel admin.")
+
+
 def _check_followups():
     """Verifica e envia follow-ups automáticos para conversas inativas (Etapas 10 e 11)."""
     try:

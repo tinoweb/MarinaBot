@@ -1193,6 +1193,54 @@ def cancel_scheduled_followup(conversation_id, sf_id):
 
 # ─── USO E CUSTO OPENAI ───────────────────────────────────────────────────────
 
+# ─── AÇÕES RÁPIDAS ────────────────────────────────────────────────────────────
+
+@admin_bp.route('/clear-all-conversations', methods=['POST'])
+@login_required
+def clear_all_conversations():
+    """Apaga TODAS as conversas, mensagens e dados relacionados do banco."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM scheduled_followups")
+        cur.execute("DELETE FROM document_checklist")
+        cur.execute("DELETE FROM conversation_notes")
+        cur.execute("DELETE FROM chat_messages")
+        cur.execute("DELETE FROM user_data")
+        cur.execute("DELETE FROM chat_sessions")
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'status': 'success', 'message': 'Todas as conversas foram removidas.'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@admin_bp.route('/clear-cache', methods=['POST'])
+@login_required
+def clear_cache():
+    """Limpa dados em memória (sem estado persistente no momento)."""
+    try:
+        from app.models.chat_model import ChatSession
+        ChatSession._sessions_cache = {}
+    except Exception:
+        pass
+    return jsonify({'status': 'success', 'message': 'Cache limpo com sucesso.'})
+
+
+@admin_bp.route('/restart-service', methods=['POST'])
+@login_required
+def restart_service():
+    """Reinicia o scheduler de follow-ups sem derrubar o Flask."""
+    try:
+        from app.services.scheduler_service import restart_scheduler
+        restart_scheduler()
+        return jsonify({'status': 'success', 'message': 'Serviço reiniciado com sucesso.'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+# ─── USO E CUSTO OPENAI ───────────────────────────────────────────────────────
+
 @admin_bp.route('/openai/usage', methods=['GET'])
 @login_required
 def openai_usage():
