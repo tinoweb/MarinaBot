@@ -242,9 +242,32 @@ def _handle_incoming_message(session, message):
 
         # 4. Classificação automática no Kanban (não bloqueia)
         try:
-            from app.services.kanban_service import auto_classify_session
+            from app.services.kanban_service import auto_classify_session, get_session_kanban_stage, STAGES_BY_KEY
+            _stage_antes = get_session_kanban_stage(chat_session.session_id)
             _qualificacao = chat_session.qualificacao
             auto_classify_session(chat_session.session_id, text, _qualificacao)
+            _stage_depois = get_session_kanban_stage(chat_session.session_id)
+
+            # Se mudou para um stage que requer agendamento → envia link de booking
+            if _stage_depois != _stage_antes:
+                _stage_obj = STAGES_BY_KEY.get(_stage_depois, {})
+                if _stage_obj.get('requires_scheduling'):
+                    try:
+                        from app.controllers.booking_controller import get_booking_url
+                        _booking_url = get_booking_url(
+                            session_id=chat_session.session_id,
+                            beneficio=_stage_obj.get('name', ''),
+                        )
+                        _link_msg = (
+                            f"📅 Para este benefício, o atendimento é feito por consulta presencial.\n\n"
+                            f"Acesse o link abaixo para escolher a data e o horário que melhor se encaixa para você:\n"
+                            f"{_booking_url}\n\n"
+                            f"É rápido e fácil! 😊"
+                        )
+                        wpp.send_message(sender_id, _link_msg, session_name=session)
+                        print(f"[Webhook] Link de agendamento enviado para {sender_id}: {_booking_url}")
+                    except Exception as _be:
+                        print(f"[Webhook] Erro ao enviar link de agendamento: {_be}")
         except Exception as _ke:
             print(f"[Webhook] Kanban classify erro (ignorado): {_ke}")
 

@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agendamento — {{ nome_escritorio }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1f2e;
+      --card:     #212736;
+      --border:   #2d3548;
+      --primary:  #4f8ef7;
+      --primary2: #3a7ae8;
+      --green:    #34d399;
+      --red:      #f87171;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --radius:   14px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 48px;
+    }
+
+    /* ── Cabeçalho ─────────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .header .avatar {
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, var(--primary), #7c3aed);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; margin: 0 auto 12px;
+      box-shadow: 0 4px 20px rgba(79,142,247,.35);
+    }
+    .header h1 { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+    .header p  { font-size: .85rem; color: var(--muted); margin-top: 4px; }
+
+    /* ── Stepper ───────────────────────────────────── */
+    .stepper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 24px;
+    }
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .step-circle {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--card);
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 700;
+      color: var(--muted);
+      transition: all .25s;
+    }
+    .step-circle.active  { border-color: var(--primary); color: var(--primary); background: rgba(79,142,247,.1); }
+    .step-circle.done    { border-color: var(--green);   color: var(--green);   background: rgba(52,211,153,.1); }
+    .step-label {
+      font-size: .65rem; color: var(--muted); white-space: nowrap;
+      transition: color .25s;
+    }
+    .step-label.active { color: var(--primary); }
+    .step-line {
+      width: 48px; height: 2px;
+      background: var(--border);
+      margin-bottom: 22px;
+      transition: background .25s;
+    }
+    .step-line.done { background: var(--green); }
+
+    /* ── Card container ────────────────────────────── */
+    .booking-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    /* ── Calendário ────────────────────────────────── */
+    .cal-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .cal-nav h2 { font-size: 1rem; font-weight: 700; }
+    .cal-nav-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      width: 34px; height: 34px;
+      cursor: pointer;
+      font-size: .9rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    .cal-nav-btn:hover { background: var(--border); }
+    .cal-nav-btn:disabled { opacity: .35; cursor: default; }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+    .cal-header {
+      text-align: center;
+      font-size: .65rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      padding-bottom: 4px;
+    }
+    .cal-day {
+      aspect-ratio: 1;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 10px;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      position: relative;
+    }
+    .cal-day.vazio, .cal-day.passado, .cal-day.indisponivel, .cal-day.bloqueado {
+      cursor: default;
+    }
+    .cal-day.passado      { color: var(--muted); opacity: .4; }
+    .cal-day.indisponivel { color: var(--muted); opacity: .4; }
+    .cal-day.bloqueado    { color: var(--red); opacity: .5; }
+    .cal-day.disponivel {
+      background: rgba(52,211,153,.12);
+      color: var(--green);
+      border: 1.5px solid rgba(52,211,153,.25);
+    }
+    .cal-day.disponivel:hover {
+      background: rgba(52,211,153,.25);
+      border-color: var(--green);
+      transform: scale(1.08);
+    }
+    .cal-day.selected {
+      background: var(--primary) !important;
+      color: #fff !important;
+      border-color: var(--primary) !important;
+      transform: scale(1.08);
+      box-shadow: 0 4px 14px rgba(79,142,247,.4);
+    }
+    .cal-day.hoje-label::after {
+      content: '';
+      position: absolute;
+      bottom: 3px;
+      left: 50%; transform: translateX(-50%);
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--primary);
+    }
+
+    /* ── Slots de horário ──────────────────────────── */
+    .slots-header { margin-bottom: 14px; }
+    .slots-header h3 { font-size: .9rem; font-weight: 700; }
+    .slots-header p  { font-size: .78rem; color: var(--muted); margin-top: 3px; }
+    .slots-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .slot-btn {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 12px 8px;
+      font-size: .88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      text-align: center;
+    }
+    .slot-btn:hover { border-color: var(--primary); color: var(--primary); background: rgba(79,142,247,.08); }
+    .slot-btn.selected { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 4px 14px rgba(79,142,247,.35); }
+    .slots-empty { color: var(--muted); font-size: .83rem; text-align: center; padding: 20px 0; }
+
+    /* ── Formulário ────────────────────────────────── */
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: .75rem; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+    .form-group input, .form-group select {
+      width: 100%;
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      border-radius: 9px;
+      padding: 11px 14px;
+      font-size: .88rem;
+      font-family: inherit;
+      transition: border-color .15s;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: rgba(79,142,247,.05);
+    }
+    .form-group select option { background: var(--card); }
+
+    /* Resumo do agendamento */
+    .resumo-box {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      font-size: .83rem;
+    }
+    .resumo-box .resumo-linha { display: flex; gap: 8px; color: var(--muted); margin-bottom: 4px; }
+    .resumo-box .resumo-linha strong { color: var(--text); }
+
+    /* ── Botões ────────────────────────────────────── */
+    .btn-primary {
+      width: 100%;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: .9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      font-family: inherit;
+    }
+    .btn-primary:hover  { background: var(--primary2); }
+    .btn-primary:active { transform: scale(.98); }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-back {
+      background: none;
+      border: 1.5px solid var(--border);
+      color: var(--muted);
+      border-radius: 10px;
+      padding: 11px;
+      font-size: .83rem;
+      cursor: pointer;
+      transition: border-color .15s;
+      font-family: inherit;
+      margin-bottom: 10px;
+      width: 100%;
+    }
+    .btn-back:hover { border-color: var(--text); color: var(--text); }
+
+    /* ── Confirmação ───────────────────────────────── */
+    .confirm-box {
+      text-align: center;
+      padding: 16px 0;
+    }
+    .confirm-icon {
+      width: 72px; height: 72px;
+      background: rgba(52,211,153,.15);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto 16px;
+      border: 2px solid var(--green);
+    }
+    .confirm-box h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+    .confirm-box p  { color: var(--muted); font-size: .85rem; line-height: 1.5; }
+    .confirm-detail {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-top: 16px;
+      text-align: left;
+    }
+    .confirm-detail-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: .84rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .confirm-detail-row:last-child { border-bottom: none; }
+    .confirm-detail-row .icon { font-size: .9rem; width: 22px; text-align: center; }
+    .confirm-detail-row .label { color: var(--muted); min-width: 80px; }
+    .confirm-detail-row .value { color: var(--text); font-weight: 600; }
+
+    /* ── Loading spinner ───────────────────────────── */
+    .spinner {
+      width: 22px; height: 22px;
+      border: 3px solid rgba(255,255,255,.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+
+    /* ── Rodapé ────────────────────────────────────── */
+    .footer {
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: .7rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Cabeçalho -->
+<div class="header">
+  <div class="avatar">⚖️</div>
+  <h1>{{ nome_escritorio }}</h1>
+  <p>{{ subtitulo }}</p>
+</div>
+
+<!-- Stepper -->
+<div class="stepper" id="stepper">
+  <div class="step-item">
+    <div class="step-circle active" id="sc1">1</div>
+    <span class="step-label active" id="sl1">Data</span>
+  </div>
+  <div class="step-line" id="line1"></div>
+  <div class="step-item">
+    <div class="step-circle" id="sc2">2</div>
+    <span class="step-label" id="sl2">Horário</span>
+  </div>
+  <div class="step-line" id="line2"></div>
+  <div class="step-item">
+    <div class="step-circle" id="sc3">3</div>
+    <span class="step-label" id="sl3">Dados</span>
+  </div>
+</div>
+
+<!-- Card principal -->
+<div class="booking-card">
+
+  <!-- ── ETAPA 1: Calendário ── -->
+  <div id="step1">
+    <div class="cal-nav">
+      <button class="cal-nav-btn" id="btn-mes-ant" onclick="mudarMes(-1)"
+        {% if mes == hoje[:7].split('-')[0]|int and mes == hoje[:7].split('-')[1]|int %}disabled{% endif %}>
+        ‹
+      </button>
+      <h2>{{ nome_mes }} {{ ano }}</h2>
+      <button class="cal-nav-btn" onclick="mudarMes(1)">›</button>
+    </div>
+
+    <div class="cal-grid">
+      {% for d in dias_pt %}
+      <div class="cal-header">{{ d }}</div>
+      {% endfor %}
+
+      {% for semana in cal_weeks %}
+      {% for cel in semana %}
+        {% if cel.dia == 0 %}
+          <div class="cal-day vazio"></div>
+        {% else %}
+          <div class="cal-day {{ cel.estado }}{% if cel.hoje %} hoje-label{% endif %}"
+               data-data="{{ cel.data }}"
+               {% if cel.estado == 'disponivel' %}onclick="selecionarData('{{ cel.data }}')"{% endif %}>
+            {{ cel.dia }}
+          </div>
+        {% endif %}
+      {% endfor %}
+      {% endfor %}
+    </div>
+
+    <p style="text-align:center;color:var(--muted);font-size:.72rem;margin-top:14px;">
+      🟢 Clique em um dia verde para ver os horários disponíveis
+    </p>
+  </div>
+
+  <!-- ── ETAPA 2: Horários ── -->
+  <div id="step2" class="hidden">
+    <button class="btn-back" onclick="voltarStep(1)">← Voltar ao calendário</button>
+    <div class="slots-header">
+      <h3 id="slots-titulo">Horários disponíveis</h3>
+      <p id="slots-subtitulo">Selecione o melhor horário para você</p>
+    </div>
+    <div id="slots-container" class="slots-grid"></div>
+    <div id="slots-loading" class="slots-empty hidden"><div class="spinner"></div></div>
+    <div id="slots-vazio" class="slots-empty hidden">Nenhum horário disponível para esta data.</div>
+  </div>
+
+  <!-- ── ETAPA 3: Dados pessoais ── -->
+  <div id="step3" class="hidden">
+    <button class="btn-back" onclick="voltarStep(2)">← Voltar aos horários</button>
+
+    <div class="resumo-box" id="resumo-box">
+      <div class="resumo-linha">📅 <strong id="resumo-data">—</strong></div>
+      <div class="resumo-linha">🕐 <strong id="resumo-hora">—</strong></div>
+    </div>
+
+    <div class="form-group">
+      <label>Nome completo *</label>
+      <input type="text" id="inp-nome" placeholder="Seu nome completo" autocomplete="name">
+    </div>
+    <div class="form-group">
+      <label>WhatsApp / Telefone *</label>
+      <input type="tel" id="inp-tel" placeholder="(11) 99999-9999" autocomplete="tel">
+    </div>
+    <div class="form-group">
+      <label>Benefício de interesse</label>
+      <select id="inp-ben">
+        <option value="">Selecione ou deixe em branco</option>
+        <option value="Aposentadoria">Aposentadoria</option>
+        <option value="Salário Maternidade">Salário Maternidade</option>
+        <option value="Auxílio Doença">Auxílio Doença</option>
+        <option value="Pensão por Morte">Pensão por Morte</option>
+        <option value="BPC/LOAS Idoso">BPC/LOAS Idoso</option>
+        <option value="BPC/LOAS Deficiente">BPC/LOAS Deficiente</option>
+        <option value="Auxílio Acidente">Auxílio Acidente</option>
+        <option value="Auxílio Reclusão">Auxílio Reclusão</option>
+      </select>
+    </div>
+    <div id="erro-form" style="color:var(--red);font-size:.78rem;margin-bottom:10px;display:none;"></div>
+    <button class="btn-primary" id="btn-confirmar" onclick="confirmarAgendamento()">
+      Confirmar Agendamento
+    </button>
+  </div>
+
+  <!-- ── CONFIRMAÇÃO ── -->
+  <div id="step-ok" class="hidden">
+    <div class="confirm-box">
+      <div class="confirm-icon">✅</div>
+      <h2>Agendamento Confirmado!</h2>
+      <p>Em breve você receberá uma confirmação pelo WhatsApp.<br>Até lá!</p>
+      <div class="confirm-detail">
+        <div class="confirm-detail-row">
+          <span class="icon">👤</span>
+          <span class="label">Nome</span>
+          <span class="value" id="ok-nome">—</span>
+        </div>
+        <div class="confirm-detail-row">
+          <span class="icon">📅</span>
+          <span class="label">Data</span>
+          <span class="value" id="ok-data">—</span>
+        </div>
+        <div class="confirm-detail-row">
+          <span class="icon">🕐</span>
+          <span class="label">Horário</span>
+          <span class="value" id="ok-hora">—</span>
+        </div>
+        <div class="confirm-detail-row">
+          <span class="icon">⚖️</span>
+          <span class="label">Benefício</span>
+          <span class="value" id="ok-ben">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">Agendamento seguro · {{ nome_escritorio }}</div>
+
+<script>
+const SESSION_ID  = {{ session_id | tojson }};
+const BENEFICIO   = {{ beneficio  | tojson }};
+const MES_ATUAL   = {{ mes }};
+const ANO_ATUAL   = {{ ano }};
+const MES_PROX    = {{ mes_prox }};
+const ANO_PROX    = {{ ano_prox }};
+
+let selectedData = null;
+let selectedHora = null;
+let currentStep  = 1;
+
+// ── Selecionar data ──────────────────────────────────
+function selecionarData(data) {
+  selectedData = data;
+  // Marca visualmente
+  document.querySelectorAll('.cal-day.disponivel').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`.cal-day[data-data="${data}"]`);
+  if (el) el.classList.add('selected');
+
+  // Vai para etapa 2
+  setTimeout(() => irStep(2), 180);
+  carregarSlots(data);
+}
+
+// ── Carregar horários ────────────────────────────────
+function carregarSlots(data) {
+  const container = document.getElementById('slots-container');
+  const loading   = document.getElementById('slots-loading');
+  const vazio     = document.getElementById('slots-vazio');
+  const titulo    = document.getElementById('slots-titulo');
+  const subtitulo = document.getElementById('slots-subtitulo');
+
+  container.innerHTML = '';
+  loading.classList.remove('hidden');
+  vazio.classList.add('hidden');
+
+  fetch(`/agendar/slots/${data}`)
+    .then(r => r.json())
+    .then(d => {
+      loading.classList.add('hidden');
+      titulo.textContent    = `${d.dia_semana}, ${d.data_br}`;
+      subtitulo.textContent = 'Selecione um horário';
+
+      if (!d.horarios || !d.horarios.length) {
+        vazio.classList.remove('hidden');
+        return;
+      }
+      d.horarios.forEach(h => {
+        const btn = document.createElement('button');
+        btn.className   = 'slot-btn';
+        btn.textContent = h;
+        btn.onclick     = () => selecionarHora(h, d.dia_semana, d.data_br);
+        container.appendChild(btn);
+      });
+    })
+    .catch(() => {
+      loading.classList.add('hidden');
+      vazio.textContent = 'Erro ao carregar horários. Tente novamente.';
+      vazio.classList.remove('hidden');
+    });
+}
+
+// ── Selecionar horário ───────────────────────────────
+function selecionarHora(hora, diaSemana, dataBR) {
+  selectedHora = hora;
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+  event.target.classList.add('selected');
+
+  document.getElementById('resumo-data').textContent = `${diaSemana}, ${dataBR}`;
+  document.getElementById('resumo-hora').textContent = hora;
+
+  // Pré-preenche benefício se veio por URL
+  if (BENEFICIO) {
+    const sel = document.getElementById('inp-ben');
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value.toLowerCase().includes(BENEFICIO.toLowerCase())) {
+        sel.selectedIndex = i; break;
+      }
+    }
+  }
+
+  setTimeout(() => irStep(3), 180);
+}
+
+// ── Confirmar agendamento ────────────────────────────
+function confirmarAgendamento() {
+  const nome  = document.getElementById('inp-nome').value.trim();
+  const tel   = document.getElementById('inp-tel').value.trim();
+  const ben   = document.getElementById('inp-ben').value;
+  const erro  = document.getElementById('erro-form');
+
+  if (!nome) { mostrarErro('Informe seu nome completo.'); return; }
+  if (!tel)  { mostrarErro('Informe seu telefone/WhatsApp.'); return; }
+
+  erro.style.display = 'none';
+  const btn = document.getElementById('btn-confirmar');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="margin:0 auto"></div>';
+
+  fetch('/agendar/confirmar', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      data:       selectedData,
+      hora:       selectedHora,
+      nome,
+      telefone:   tel,
+      beneficio:  ben,
+      session_id: SESSION_ID || 0,
+    })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      document.getElementById('ok-nome').textContent = nome;
+      document.getElementById('ok-data').textContent = document.getElementById('resumo-data').textContent;
+      document.getElementById('ok-hora').textContent = selectedHora;
+      document.getElementById('ok-ben').textContent  = ben || '—';
+      irStep('ok');
+      esconderStepper();
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Confirmar Agendamento';
+      mostrarErro(d.message || 'Erro ao confirmar. Tente novamente.');
+    }
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.textContent = 'Confirmar Agendamento';
+    mostrarErro('Erro de conexão. Tente novamente.');
+  });
+}
+
+// ── Navegação de mês ─────────────────────────────────
+function mudarMes(dir) {
+  let m = MES_ATUAL + dir;
+  let a = ANO_ATUAL;
+  if (m > 12) { m = 1; a++; }
+  if (m < 1)  { m = 12; a--; }
+  const url = new URL(window.location.href);
+  url.searchParams.set('mes', m);
+  url.searchParams.set('ano', a);
+  window.location.href = url.toString();
+}
+
+// ── Stepper ──────────────────────────────────────────
+function irStep(n) {
+  currentStep = n;
+  ['step1','step2','step3','step-ok'].forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+  const el = document.getElementById(n === 'ok' ? 'step-ok' : `step${n}`);
+  if (el) el.classList.remove('hidden');
+  atualizarStepper(n);
+}
+
+function voltarStep(n) { irStep(n); }
+
+function atualizarStepper(n) {
+  for (let i = 1; i <= 3; i++) {
+    const circle = document.getElementById(`sc${i}`);
+    const label  = document.getElementById(`sl${i}`);
+    circle.className = 'step-circle';
+    label.className  = 'step-label';
+    if (n === 'ok' || i < n) { circle.classList.add('done'); label.classList.add('done'); }
+    else if (i === n)        { circle.classList.add('active'); label.classList.add('active'); }
+  }
+  if (n === 'ok' || n > 1) document.getElementById('line1').classList.add('done'); else document.getElementById('line1').classList.remove('done');
+  if (n === 'ok' || n > 2) document.getElementById('line2').classList.add('done'); else document.getElementById('line2').classList.remove('done');
+}
+
+function esconderStepper() {
+  document.getElementById('stepper').style.display = 'none';
+}
+
+function mostrarErro(msg) {
+  const el = document.getElementById('erro-form');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+</script>
+</body>
+</html>

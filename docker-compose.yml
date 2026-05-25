@@ -54,6 +54,7 @@ services:
       - WPP_SERVER_URL=http://wppconnect:21465
       - WPP_SECRET_KEY=${WPP_SECRET_KEY:-marina_bot_secret}
       - APP_URL=${APP_URL:-http://app:5000}
+      - BASE_URL=${BASE_URL:-http://localhost:5000}
     depends_on:
       - db
       - wppconnect

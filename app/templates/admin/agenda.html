@@ -181,6 +181,29 @@
       </button>
     </div>
 
+    <!-- Link público de agendamento -->
+    <div class="ag-card mb-3">
+      <h6><i class="fas fa-link me-1"></i>Link de Agendamento</h6>
+      <p style="font-size:.74rem;color:#94a3b8;margin-bottom:8px;">
+        Compartilhe este link com os clientes para que agendem diretamente.
+      </p>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input type="text" id="booking-link-input" readonly
+               value="{{ request.host_url.rstrip('/') }}/agendar"
+               style="flex:1;background:#12151e;border:1px solid #2d3748;color:#60a5fa;
+                      border-radius:5px;padding:6px 10px;font-size:.72rem;">
+        <button onclick="copiarLink()" class="btn btn-primary btn-sm" title="Copiar link">
+          <i class="fas fa-copy"></i>
+        </button>
+        <a href="/agendar" target="_blank" class="btn btn-secondary btn-sm" title="Abrir">
+          <i class="fas fa-external-link-alt"></i>
+        </a>
+      </div>
+      <div id="link-copiado" style="display:none;color:#4ade80;font-size:.72rem;margin-top:6px;">
+        <i class="fas fa-check"></i> Link copiado!
+      </div>
+    </div>
+
     <!-- Próximas datas disponíveis -->
     <div class="ag-card">
       <h6><i class="fas fa-clock me-1"></i>Próximas Disponíveis</h6>
@@ -513,6 +536,20 @@ function showToast(msg, type = 'success') {
   toast.style.display = 'flex';
   clearTimeout(toast._t);
   toast._t = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+}
+
+// ── Copiar link de agendamento ───────────────────────
+function copiarLink() {
+  const input = document.getElementById('booking-link-input');
+  navigator.clipboard.writeText(input.value).then(() => {
+    const msg = document.getElementById('link-copiado');
+    msg.style.display = 'block';
+    clearTimeout(msg._t);
+    msg._t = setTimeout(() => { msg.style.display = 'none'; }, 2500);
+  }).catch(() => {
+    input.select();
+    document.execCommand('copy');
+  });
 }
 
 // Init
