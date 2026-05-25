@@ -21,8 +21,8 @@
 /* ── Layout principal ───────────────────────────────── */
 .ag-layout {
   display: grid;
-  grid-template-columns: 360px 1fr;
-  gap: 20px;
+  grid-template-columns: 300px 1fr;
+  gap: 18px;
   align-items: start;
 }
 @media(max-width:1024px){ .ag-layout { grid-template-columns: 1fr; } }
@@ -31,15 +31,15 @@
 .ag-card {
   background: var(--ag-card);
   border: 1px solid var(--ag-border);
-  border-radius: 14px;
-  padding: 20px;
-  margin-bottom: 14px;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
 }
 .ag-card:last-child { margin-bottom: 0; }
 .ag-card-title {
   font-size: .68rem; font-weight: 700; letter-spacing: .08em;
   text-transform: uppercase; color: var(--ag-muted);
-  margin-bottom: 14px; display: flex; align-items: center; gap: 6px;
+  margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
 }
 
 /* ── Tabs sidebar ───────────────────────────────────── */
@@ -60,9 +60,27 @@
 .ag-tab-panel { display: none; }
 .ag-tab-panel.active { display: block; }
 
+/* ── Accordion config ────────────────────────────────── */
+.config-accordion-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; background: var(--ag-surface);
+  border-radius: 8px; cursor: pointer; transition: background .15s;
+  margin-bottom: 2px;
+}
+.config-accordion-header:hover { background: var(--ag-hover); }
+.config-accordion-header.active { background: var(--ag-hover); }
+.config-accordion-icon {
+  font-size: .7rem; color: var(--ag-muted); transition: transform .2s;
+}
+.config-accordion-header.active .config-accordion-icon { transform: rotate(180deg); }
+.config-accordion-body {
+  max-height: 0; overflow: hidden; transition: max-height .3s ease;
+}
+.config-accordion-body.show { max-height: 1200px; }
+
 /* ── Day row – layout em 2 linhas ───────────────────── */
 .day-row {
-  padding: 9px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--ag-border);
 }
 .day-row:last-child { border-bottom: none; }
@@ -82,7 +100,7 @@
 }
 .day-toggle input:checked + .slider::before { transform: translateX(17px); }
 .day-name {
-  font-size: .82rem; color: var(--ag-text); font-weight: 700; flex: 1;
+  font-size: .78rem; color: var(--ag-text); font-weight: 700; flex: 1;
 }
 .max-label {
   font-size: .65rem; color: var(--ag-muted); white-space: nowrap;
@@ -97,15 +115,15 @@
 .horarios-input {
   flex: 1; min-width: 0;
   background: var(--ag-surface); border: 1px solid var(--ag-border);
-  color: var(--ag-text); border-radius: 6px; padding: 5px 8px;
-  font-size: .74rem; font-family: 'Courier New', monospace;
+  color: var(--ag-text); border-radius: 6px; padding: 4px 7px;
+  font-size: .7rem; font-family: 'Courier New', monospace;
 }
 .horarios-input::placeholder { color: var(--ag-muted); }
 .horarios-input:focus { outline: none; border-color: var(--ag-primary); }
 .horarios-input:disabled, .max-input:disabled { opacity: .35; }
 .horarios-hint {
-  font-size: .63rem; color: var(--ag-muted); margin-top: 3px;
-  padding-left: 2px;
+  font-size: .6rem; color: var(--ag-muted); margin-top: 2px;
+  padding-left: 2px; font-style: italic;
 }
 
 /* ── Input padrão no card ───────────────────────────── */
@@ -386,12 +404,20 @@
     <!-- Tab: Disponibilidade semanal -->
     <div id="tab-config" class="ag-tab-panel active">
       <div class="ag-card">
-        <div class="ag-card-title">
-          <i class="fas fa-sliders"></i> Disponibilidade Semanal
+        <!-- Accordion header -->
+        <div class="config-accordion-header active" onclick="toggleAccordion(this)">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-sliders" style="color:var(--ag-primary)"></i>
+            <span style="font-size:.78rem;font-weight:700;color:var(--ag-text)">Disponibilidade Semanal</span>
+          </div>
+          <i class="fas fa-chevron-down config-accordion-icon"></i>
         </div>
-        <form id="form-config">
-          {% for dia in config_semanal %}
-          <div class="day-row">
+
+        <!-- Accordion body -->
+        <div class="config-accordion-body show">
+          <form id="form-config" style="margin-top:10px;">
+            {% for dia in config_semanal %}
+            <div class="day-row">
             <div class="day-row-top">
               <label class="day-toggle" title="{{ dias_label[dia.dia_semana] }}">
                 <input type="checkbox" name="ativo_{{ dia.dia_semana }}"
@@ -422,6 +448,13 @@
             <i class="fas fa-save me-2"></i>Salvar Configuração
           </button>
         </form>
+        </div>
+
+        <!-- Resumo quando colapsado -->
+        <div id="config-resumo" style="display:none;margin-top:8px;font-size:.7rem;color:var(--ag-muted);padding:0 12px;">
+          <i class="fas fa-info-circle me-1"></i>
+          Clique para expandir e configurar os horários
+        </div>
       </div>
     </div>
 
@@ -695,6 +728,23 @@ function switchTab(name, btn) {
   document.querySelectorAll('.ag-tab-panel').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── Accordion ────────────────────────────────────────
+function toggleAccordion(header) {
+  const body   = header.nextElementSibling;
+  const resumo = document.getElementById('config-resumo');
+  const isOpen = header.classList.contains('active');
+  
+  if (isOpen) {
+    header.classList.remove('active');
+    body.classList.remove('show');
+    if (resumo) resumo.style.display = 'block';
+  } else {
+    header.classList.add('active');
+    body.classList.add('show');
+    if (resumo) resumo.style.display = 'none';
+  }
 }
 
 // ── Selecionar dia no calendário ─────────────────────
