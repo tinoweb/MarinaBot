@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from app.models.chat_model import ChatSession
 from app.models.ai_model import get_ai_response
 from app.models.whatsapp_model import WhatsAppConfig
+from app.services.audio_service import is_audio_message, transcribe_audio_message
 import re
 from collections import deque
 
@@ -120,22 +121,51 @@ def _handle_incoming_message(session, message):
     # Extrai o texto da mensagem (suporta body, caption, text e content)
     text = (
         message.get('content') or
-        message.get('body') or
         message.get('caption') or
         message.get('text') or ''
     ).strip()
 
-    print(f"[Webhook] Processando mensagem de {sender_id}: '{text[:80]}'")
+    # Para mensagens de áudio (PTT/voice), não usa body como texto
+    audio_transcribed = False
+    if not text and is_audio_message(message):
+        print(f"[Webhook] Áudio recebido de {sender_id}. Iniciando transcrição...")
+
+    print(f"[Webhook] Processando mensagem de {sender_id}: tipo={message.get('type','text')!r} texto='{text[:80]}'")
 
     # Ignora mensagens de grupo
     if message.get('isGroupMsg') or message.get('isGroup'):
         print(f"[Webhook] Mensagem de grupo ignorada.")
         return
 
-    # Ignora mensagens sem remetente ou sem texto
-    if not sender_id or not text:
-        print(f"[Webhook] Mensagem ignorada: sender_id={sender_id!r}, text={text!r}")
+    # Ignora mensagens sem remetente
+    if not sender_id:
+        print(f"[Webhook] Mensagem ignorada: sender_id ausente")
         return
+
+    # Tenta transcrever áudio se não houver texto
+    if not text and is_audio_message(message):
+        try:
+            from app.services.whatsapp_service import get_wpp_service
+            wpp_temp = get_wpp_service()
+            transcription = transcribe_audio_message(message, wpp_temp, session)
+            if transcription:
+                text = transcription
+                audio_transcribed = True
+                print(f"[Webhook] Áudio transcrito com sucesso: '{text[:80]}'")
+            else:
+                print(f"[Webhook] Transcrição falhou. Ignorando mensagem de áudio.")
+                return
+        except Exception as e:
+            print(f"[Webhook] Erro ao transcrever áudio: {e}")
+            return
+
+    # Ignora mensagens sem texto (não-áudio e sem conteúdo)
+    if not text:
+        # Aceita o body como texto apenas se NÃO for mensagem de áudio
+        text = (message.get('body') or '').strip()
+        if not text:
+            print(f"[Webhook] Mensagem ignorada: sem texto. sender_id={sender_id!r}")
+            return
 
     # Ignora números de status (@broadcast) e newsletter
     if '@broadcast' in sender_id or 'newsletter' in sender_id:
@@ -203,7 +233,9 @@ def _handle_incoming_message(session, message):
             wpp.check_number_status(real_phone.split('@')[0], session_name=session)
 
         # 3. Adiciona mensagem do usuário e extrai dados
-        chat_session.add_message('user', text)
+        # Se veio de áudio, armazena com prefixo para identificação no histórico
+        stored_text = f"[🎤 Áudio transcrito]: {text}" if audio_transcribed else text
+        chat_session.add_message('user', stored_text)
 
         from app.models.ai_model import _extract_data_from_user_message
         _extract_data_from_user_message(chat_session, text)

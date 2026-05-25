@@ -496,6 +496,51 @@ class WhatsAppAPIService:
             print(f"[WPP] Erro ao enviar send-reply: {e}")
             return {"status": "error", "message": str(e)}
 
+    def download_media(self, message_id: str, session_name=None):
+        """
+        Faz download dos bytes de mídia (áudio, imagem, etc.) a partir do messageId.
+        Tenta diferentes endpoints do WPP Connect Server.
+        Retorna tupla (bytes_data, mimetype) ou (None, None) em caso de falha.
+        """
+        session = session_name or self.session_name
+        headers = self._headers(session)
+
+        # Endpoint 1: GET /api/{session}/get-media-by-message/{messageId}
+        url1 = f"{self.server_url}/api/{session}/get-media-by-message/{message_id}"
+        try:
+            resp = requests.get(url1, headers=headers, timeout=30)
+            print(f"[WPP] download_media (endpoint1) status={resp.status_code}")
+            if resp.status_code == 200 and len(resp.content) > 500:
+                mimetype = resp.headers.get('Content-Type', 'audio/ogg').split(';')[0]
+                return resp.content, mimetype
+        except Exception as e:
+            print(f"[WPP] download_media endpoint1 erro: {e}")
+
+        # Endpoint 2: POST /api/{session}/download-media com body { "messageId": "..." }
+        url2 = f"{self.server_url}/api/{session}/download-media"
+        try:
+            resp = requests.post(url2, json={"messageId": message_id}, headers=headers, timeout=30)
+            print(f"[WPP] download_media (endpoint2) status={resp.status_code}")
+            if resp.status_code == 200:
+                content_type = resp.headers.get('Content-Type', '')
+                if 'audio' in content_type or 'octet-stream' in content_type:
+                    return resp.content, content_type.split(';')[0]
+                try:
+                    import base64
+                    data = resp.json()
+                    b64 = data.get('base64') or data.get('data') or data.get('media')
+                    mime = data.get('mimetype', 'audio/ogg')
+                    if b64:
+                        audio_bytes = base64.b64decode(b64)
+                        return audio_bytes, mime
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"[WPP] download_media endpoint2 erro: {e}")
+
+        print(f"[WPP] Não foi possível baixar mídia para messageId={message_id}")
+        return None, None
+
     def logout_session(self, session_name=None):
         """Faz logout da sessão (desvincula o dispositivo)."""
         session = session_name or self.session_name
