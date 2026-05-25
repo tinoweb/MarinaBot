@@ -87,6 +87,13 @@ def init_db():
         except Exception:
             pass
 
+        try:
+            cursor.execute(
+                "ALTER TABLE chat_sessions ADD COLUMN kanban_stage VARCHAR(50) DEFAULT 'atendimento_inicial'"
+            )
+        except Exception:
+            pass
+
         
         # Cria tabela de mensagens
         cursor.execute('''
@@ -178,6 +185,62 @@ def init_db():
             INDEX idx_usage_session (session_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ''')
+
+        # ── Agenda / Calendário ────────────────────────────────────────────────
+        # Configuração semanal de disponibilidade (1 linha por dia da semana)
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS agenda_config (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            dia_semana TINYINT NOT NULL COMMENT '0=Dom 1=Seg 2=Ter 3=Qua 4=Qui 5=Sex 6=Sab',
+            ativo TINYINT(1) DEFAULT 0,
+            horarios JSON COMMENT '["09:00","10:00","11:00"]',
+            max_por_dia INT DEFAULT 5,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_dia (dia_semana)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ''')
+
+        # Datas bloqueadas (feriados, férias, etc.)
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS agenda_bloqueios (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            data DATE NOT NULL,
+            motivo VARCHAR(150),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_data (data)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ''')
+
+        # Agendamentos confirmados
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS agendamentos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            session_id INT NOT NULL,
+            data DATE NOT NULL,
+            hora VARCHAR(5) NOT NULL,
+            beneficio VARCHAR(100),
+            nome_cliente VARCHAR(150),
+            telefone VARCHAR(50),
+            status ENUM("pendente","confirmado","cancelado","realizado") DEFAULT "pendente",
+            observacoes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_agt_session (session_id),
+            INDEX idx_agt_data (data, status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ''')
+
+        # Seed: dias úteis padrão (Seg-Sex) sem horários ainda
+        for _dia in range(7):
+            _ativo = 1 if 1 <= _dia <= 5 else 0
+            _horarios = '["09:00","10:00","11:00","14:00","15:00","16:00"]' if _ativo else '[]'
+            try:
+                cursor.execute(
+                    "INSERT IGNORE INTO agenda_config (dia_semana, ativo, horarios) VALUES (%s, %s, %s)",
+                    (_dia, _ativo, _horarios)
+                )
+            except Exception:
+                pass
 
         # Cria tabela de configurações da IA
         cursor.execute('''

@@ -209,6 +209,117 @@ def _log_token_usage(session_id, model, usage):
         print(f"[TokenUsage] Erro ao registrar: {e}")
 
 
+def _inject_agenda_context(chat_session, messages: list):
+    """
+    Se o kanban_stage do lead requer agendamento, injeta uma mensagem de sistema
+    com os próximos horários disponíveis para que a IA possa oferecê-los ao cliente.
+    Também detecta confirmação de agendamento e cria o registro automaticamente.
+    """
+    try:
+        from app.services.kanban_service import get_session_kanban_stage, STAGES_BY_KEY
+        from app.services.agenda_service import (
+            get_proximas_datas_disponiveis, criar_agendamento, get_agendamento_do_lead
+        )
+
+        if not chat_session.session_id:
+            return
+
+        stage_key = get_session_kanban_stage(chat_session.session_id)
+        stage = STAGES_BY_KEY.get(stage_key)
+
+        if not stage or not stage.get('requires_scheduling'):
+            return
+
+        # Verifica se já tem agendamento ativo para não oferecer de novo
+        agt_existente = get_agendamento_do_lead(chat_session.session_id)
+        if agt_existente:
+            data_br = agt_existente.get('data_br', '')
+            hora = agt_existente.get('hora', '')
+            context = (
+                f"[SISTEMA – NÃO ENVIE AO CLIENTE] O cliente já tem consulta agendada para "
+                f"{data_br} às {hora}. Confirme e reforce a importância de comparecer."
+            )
+            messages.insert(1, {"role": "system", "content": context})
+            return
+
+        # Busca próximas datas disponíveis
+        proximas = get_proximas_datas_disponiveis(quantidade=3)
+        if not proximas:
+            context = (
+                "[SISTEMA – NÃO ENVIE AO CLIENTE] Não há horários disponíveis configurados na agenda "
+                "no momento. Informe ao cliente que entraremos em contato para agendar."
+            )
+        else:
+            linhas = []
+            for d in proximas:
+                slots = ', '.join(d['horarios'][:4])
+                linhas.append(f"  • {d['dia_semana']} {d['data_br']}: {slots}")
+            slots_texto = '\n'.join(linhas)
+            context = (
+                f"[SISTEMA – NÃO ENVIE AO CLIENTE] Este benefício requer agendamento de consulta "
+                f"com a Dra. Marina. Ofereça ao cliente as próximas datas disponíveis:\n"
+                f"{slots_texto}\n"
+                f"Quando o cliente escolher data e horário, confirme e informe que o agendamento "
+                f"será registrado. Use o formato: AGENDAR:[data ISO]:[hora] no final da sua resposta "
+                f"(ex: AGENDAR:2025-06-10:09:00). Esta tag é processada automaticamente."
+            )
+
+        messages.insert(1, {"role": "system", "content": context})
+
+    except Exception as e:
+        print(f"[AI] Aviso: erro ao injetar contexto de agenda: {e}")
+
+
+def _process_agendamento_tag(response_text: str, chat_session) -> str:
+    """
+    Detecta a tag AGENDAR:[data]:[hora] na resposta da IA e cria o agendamento.
+    Remove a tag do texto antes de enviar ao cliente.
+    """
+    import re as _re
+    pattern = r'AGENDAR:(\d{4}-\d{2}-\d{2}):(\d{2}:\d{2})'
+    match = _re.search(pattern, response_text)
+    if not match:
+        return response_text
+
+    data_str = match.group(1)
+    hora = match.group(2)
+
+    try:
+        from app.services.agenda_service import criar_agendamento
+        nome = (
+            chat_session.user_data.get('nome_completo') or
+            chat_session.user_data.get('nome') or
+            chat_session.user_data.get('nome_wpp') or ''
+        )
+        telefone = (
+            chat_session.user_data.get('real_phone', '').replace('@c.us', '') or
+            chat_session.user_data.get('telefone', '')
+        )
+        from app.services.kanban_service import get_session_kanban_stage, STAGES_BY_KEY
+        stage_key = get_session_kanban_stage(chat_session.session_id)
+        stage = STAGES_BY_KEY.get(stage_key, {})
+        beneficio = stage.get('name', '')
+
+        result = criar_agendamento(
+            session_id=chat_session.session_id,
+            data_str=data_str,
+            hora=hora,
+            beneficio=beneficio,
+            nome_cliente=nome,
+            telefone=telefone,
+        )
+        if result['success']:
+            print(f"[AI] Agendamento criado automaticamente: {data_str} {hora} para sessão {chat_session.session_id}")
+        else:
+            print(f"[AI] Falha ao criar agendamento automático: {result['message']}")
+    except Exception as e:
+        print(f"[AI] Erro ao processar tag AGENDAR: {e}")
+
+    # Remove a tag do texto
+    clean = _re.sub(pattern, '', response_text).strip()
+    return clean
+
+
 def get_ai_response(chat_session):
     """
     Obtém resposta da IA respeitando ia_pausada e o script de 12 etapas.
@@ -244,6 +355,9 @@ def get_ai_response(chat_session):
 
         messages = chat_session.get_conversation_history(max_messages=15)
 
+        # Injeta contexto de agenda se o benefício requer agendamento
+        _inject_agenda_context(chat_session, messages)
+
         client = _get_openai_client()
         response = client.chat.completions.create(
             model=ai_model,
@@ -266,6 +380,9 @@ def get_ai_response(chat_session):
 
         # Extrai metadados de etapa/qualificação e retorna texto limpo
         clean_response = _parse_and_strip_meta(raw_response, chat_session)
+
+        # Detecta e processa tag de agendamento automático (AGENDAR:data:hora)
+        clean_response = _process_agendamento_tag(clean_response, chat_session)
 
         # Atualiza dados do usuário extraídos da mensagem
         _update_user_data_from_response(chat_session, clean_response)

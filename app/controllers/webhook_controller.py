@@ -240,7 +240,15 @@ def _handle_incoming_message(session, message):
         from app.models.ai_model import _extract_data_from_user_message
         _extract_data_from_user_message(chat_session, text)
 
-        # 4. Gera resposta da IA (retorna None se IA estiver pausada)
+        # 4. Classificação automática no Kanban (não bloqueia)
+        try:
+            from app.services.kanban_service import auto_classify_session
+            _qualificacao = chat_session.qualificacao
+            auto_classify_session(chat_session.session_id, text, _qualificacao)
+        except Exception as _ke:
+            print(f"[Webhook] Kanban classify erro (ignorado): {_ke}")
+
+        # 5. Gera resposta da IA (retorna None se IA estiver pausada)
         ai_response = get_ai_response(chat_session)
 
         if ai_response is None:

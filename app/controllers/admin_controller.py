@@ -1330,3 +1330,185 @@ def openai_usage():
         })
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+# ── KANBAN CRM ────────────────────────────────────────────────────────────────
+
+@admin_bp.route('/kanban')
+@login_required
+def kanban():
+    """Página principal do Kanban CRM."""
+    from app.services.kanban_service import STAGES, get_board_data
+    board = get_board_data()
+    return render_template('admin/kanban.html', stages=STAGES, board=board)
+
+
+@admin_bp.route('/kanban/data')
+@login_required
+def kanban_data():
+    """API JSON com dados do board para polling em tempo real."""
+    from app.services.kanban_service import STAGES, get_board_data
+    board = get_board_data()
+    serialized = {}
+    for stage_key, cards in board.items():
+        serialized[stage_key] = []
+        for card in cards:
+            c = dict(card)
+            for k, v in c.items():
+                if hasattr(v, 'isoformat'):
+                    c[k] = v.isoformat()
+            serialized[stage_key].append(c)
+    return jsonify({'status': 'success', 'board': serialized, 'stages': STAGES})
+
+
+@admin_bp.route('/kanban/move', methods=['POST'])
+@login_required
+def kanban_move():
+    """Move um lead para uma stage específica (ação manual do admin)."""
+    from app.services.kanban_service import move_session_to_stage, STAGES_BY_KEY
+    data = request.get_json(silent=True) or {}
+    session_id = data.get('session_id')
+    stage_key = data.get('stage_key')
+    if not session_id or not stage_key:
+        return jsonify({'status': 'error', 'message': 'session_id e stage_key são obrigatórios'}), 400
+    if stage_key not in STAGES_BY_KEY:
+        return jsonify({'status': 'error', 'message': f'Stage inválida: {stage_key}'}), 400
+    ok = move_session_to_stage(int(session_id), stage_key)
+    if ok:
+        return jsonify({'status': 'success', 'message': f'Lead movido para {stage_key}'})
+    return jsonify({'status': 'error', 'message': 'Falha ao mover lead'}), 500
+
+
+# ── AGENDA / CALENDÁRIO ───────────────────────────────────────────────────────
+
+@admin_bp.route('/agenda')
+@login_required
+def agenda():
+    """Página principal da agenda com calendário e configuração."""
+    from app.services.agenda_service import (
+        get_config_semanal, get_agendamentos_por_data, get_bloqueios, DIAS_LABEL
+    )
+    from datetime import date as _date
+    import calendar as _cal
+
+    mes = int(request.args.get('mes', _date.today().month))
+    ano = int(request.args.get('ano', _date.today().year))
+
+    config_semanal = get_config_semanal()
+    agendamentos_mes = get_agendamentos_por_data(mes, ano)
+    bloqueios = get_bloqueios(mes, ano)
+
+    # Gera estrutura do calendário (semanas × dias)
+    cal = _cal.monthcalendar(ano, mes)
+    nome_mes = [
+        '', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ][mes]
+
+    # Identifica dias disponíveis (dia_semana ativo na config)
+    dias_ativos = {c['dia_semana'] for c in config_semanal if c.get('ativo')}
+    hoje = str(_date.today())
+
+    return render_template('admin/agenda.html',
+        config_semanal=config_semanal,
+        calendario=cal,
+        mes=mes, ano=ano,
+        nome_mes=nome_mes,
+        agendamentos_mes=agendamentos_mes,
+        bloqueios=bloqueios,
+        dias_ativos=dias_ativos,
+        hoje=hoje,
+        dias_label=DIAS_LABEL,
+    )
+
+
+@admin_bp.route('/agenda/config', methods=['POST'])
+@login_required
+def agenda_salvar_config():
+    """Salva a configuração semanal de disponibilidade."""
+    from app.services.agenda_service import salvar_config_dia
+    data = request.get_json(silent=True) or {}
+    dias = data.get('dias', [])
+    erros = []
+    for item in dias:
+        ok = salvar_config_dia(
+            dia_semana=int(item['dia_semana']),
+            ativo=bool(item.get('ativo', False)),
+            horarios=item.get('horarios', []),
+            max_por_dia=int(item.get('max_por_dia', 5))
+        )
+        if not ok:
+            erros.append(item['dia_semana'])
+    if erros:
+        return jsonify({'status': 'error', 'message': f'Erro nos dias: {erros}'}), 500
+    return jsonify({'status': 'success', 'message': 'Configuração salva!'})
+
+
+@admin_bp.route('/agenda/bloquear', methods=['POST'])
+@login_required
+def agenda_bloquear():
+    """Bloqueia uma data específica."""
+    from app.services.agenda_service import bloquear_data
+    data = request.get_json(silent=True) or {}
+    data_str = data.get('data', '')
+    motivo = data.get('motivo', '')
+    if not data_str:
+        return jsonify({'status': 'error', 'message': 'Data obrigatória'}), 400
+    ok = bloquear_data(data_str, motivo)
+    return jsonify({'status': 'success' if ok else 'error'})
+
+
+@admin_bp.route('/agenda/bloquear/<data_str>', methods=['DELETE'])
+@login_required
+def agenda_desbloquear(data_str):
+    """Remove bloqueio de uma data."""
+    from app.services.agenda_service import desbloquear_data
+    ok = desbloquear_data(data_str)
+    return jsonify({'status': 'success' if ok else 'error'})
+
+
+@admin_bp.route('/agenda/disponibilidade/<data_str>')
+@login_required
+def agenda_disponibilidade(data_str):
+    """Retorna horários disponíveis para uma data (usado pelo front e pelo bot)."""
+    from app.services.agenda_service import get_horarios_disponiveis
+    slots = get_horarios_disponiveis(data_str)
+    return jsonify({'status': 'success', 'data': data_str, 'horarios': slots})
+
+
+@admin_bp.route('/agenda/proximas')
+@login_required
+def agenda_proximas():
+    """Retorna próximas datas disponíveis (usado pelo bot)."""
+    from app.services.agenda_service import get_proximas_datas_disponiveis
+    qtd = int(request.args.get('qtd', 3))
+    datas = get_proximas_datas_disponiveis(quantidade=qtd)
+    return jsonify({'status': 'success', 'datas': datas})
+
+
+@admin_bp.route('/agenda/agendar', methods=['POST'])
+@login_required
+def agenda_criar():
+    """Cria um agendamento (admin manual ou via bot)."""
+    from app.services.agenda_service import criar_agendamento
+    data = request.get_json(silent=True) or {}
+    result = criar_agendamento(
+        session_id=int(data.get('session_id', 0)),
+        data_str=data.get('data', ''),
+        hora=data.get('hora', ''),
+        beneficio=data.get('beneficio', ''),
+        nome_cliente=data.get('nome_cliente', ''),
+        telefone=data.get('telefone', ''),
+    )
+    code = 200 if result['success'] else 400
+    return jsonify(result), code
+
+
+@admin_bp.route('/agenda/agendamentos/<int:agt_id>', methods=['PATCH'])
+@login_required
+def agenda_atualizar(agt_id):
+    """Atualiza status de um agendamento."""
+    from app.services.agenda_service import atualizar_status
+    data = request.get_json(silent=True) or {}
+    ok = atualizar_status(agt_id, data.get('status', ''), data.get('observacoes'))
+    return jsonify({'status': 'success' if ok else 'error'})

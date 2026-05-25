@@ -1,0 +1,521 @@
+{% extends "admin/base.html" %}
+{% block title %}Agenda – AtendBot{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Layout ────────────────────────────────────────── */
+.agenda-grid { display: grid; grid-template-columns: 320px 1fr; gap: 20px; align-items: start; }
+@media(max-width:900px){ .agenda-grid { grid-template-columns: 1fr; } }
+
+/* ── Card genérico ─────────────────────────────────── */
+.ag-card { background:#1e2430; border-radius:10px; padding:18px; }
+.ag-card h6 { color:#94a3b8; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; margin-bottom:12px; }
+
+/* ── Dias semana ───────────────────────────────────── */
+.day-row { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #2d3748; }
+.day-row:last-child { border-bottom:none; }
+.day-toggle { position:relative; width:38px; height:20px; flex-shrink:0; }
+.day-toggle input { opacity:0; width:0; height:0; }
+.day-toggle .slider {
+  position:absolute; inset:0; background:#374151; border-radius:20px; cursor:pointer; transition:.2s;
+}
+.day-toggle input:checked + .slider { background:#4a90e2; }
+.day-toggle .slider::before {
+  content:''; position:absolute; width:14px; height:14px; left:3px; bottom:3px;
+  background:#fff; border-radius:50%; transition:.2s;
+}
+.day-toggle input:checked + .slider::before { transform:translateX(18px); }
+.day-name { width:72px; font-size:.82rem; color:#cbd5e1; font-weight:600; }
+.horarios-input {
+  flex:1; background:#12151e; border:1px solid #2d3748; color:#e2e8f0;
+  border-radius:5px; padding:3px 7px; font-size:.75rem;
+}
+.horarios-input:focus { outline:none; border-color:#4a90e2; }
+.max-input {
+  width:46px; background:#12151e; border:1px solid #2d3748; color:#e2e8f0;
+  border-radius:5px; padding:3px 6px; font-size:.75rem; text-align:center;
+}
+
+/* ── Calendário ────────────────────────────────────── */
+.cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.cal-nav h5 { margin:0; font-size:1rem; color:#e2e8f0; font-weight:700; }
+.cal-nav a { color:#4a90e2; text-decoration:none; font-size:1.1rem; padding:2px 8px; }
+.cal-table { width:100%; border-collapse:separate; border-spacing:4px; }
+.cal-table th {
+  text-align:center; font-size:.68rem; color:#475569; text-transform:uppercase;
+  letter-spacing:.05em; padding:4px;
+}
+.cal-cell {
+  text-align:center; vertical-align:top; border-radius:8px; padding:6px 4px;
+  min-height:62px; font-size:.78rem; cursor:pointer; position:relative;
+  transition: background .15s;
+}
+.cal-cell.empty { background:transparent; cursor:default; }
+.cal-cell.disponivel { background:#1a3a2a; color:#4ade80; }
+.cal-cell.disponivel:hover { background:#1f4535; }
+.cal-cell.bloqueado { background:#3a1a1a; color:#f87171; }
+.cal-cell.com-agt { background:#1a2a3a; color:#60a5fa; }
+.cal-cell.com-agt.disponivel { background:#1a2f3a; }
+.cal-cell.hoje { outline:2px solid #4a90e2; outline-offset:-2px; }
+.cal-cell.passado { opacity:.45; cursor:default; }
+.cal-cell-num { font-weight:700; margin-bottom:2px; display:block; }
+.cal-dots { display:flex; gap:2px; justify-content:center; flex-wrap:wrap; margin-top:2px; }
+.cal-dot {
+  width:6px; height:6px; border-radius:50%;
+  background:#60a5fa; display:inline-block;
+}
+.cal-dot.pendente { background:#fbbf24; }
+.cal-dot.confirmado { background:#4ade80; }
+.cal-dot.cancelado { background:#ef4444; }
+.cal-dot.realizado { background:#94a3b8; }
+.cal-lock { font-size:.6rem; opacity:.7; }
+
+/* ── Lista agendamentos ────────────────────────────── */
+.agt-item {
+  background:#252d3d; border-radius:8px; padding:10px 12px;
+  margin-bottom:8px; display:flex; align-items:center; gap:10px;
+}
+.agt-hora { font-size:1rem; font-weight:700; color:#60a5fa; min-width:42px; }
+.agt-info { flex:1; }
+.agt-nome { font-size:.85rem; color:#e2e8f0; font-weight:600; }
+.agt-ben { font-size:.72rem; color:#94a3b8; }
+.agt-status {
+  font-size:.65rem; padding:2px 8px; border-radius:10px; font-weight:700;
+}
+.agt-status.pendente   { background:#ca8a0433; color:#fbbf24; }
+.agt-status.confirmado { background:#16a34a33; color:#4ade80; }
+.agt-status.cancelado  { background:#dc262633; color:#f87171; }
+.agt-status.realizado  { background:#47556933; color:#94a3b8; }
+
+/* ── Modal ─────────────────────────────────────────── */
+.ag-modal-overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.6);
+  z-index:1050; align-items:center; justify-content:center;
+}
+.ag-modal-overlay.show { display:flex; }
+.ag-modal {
+  background:#1e2430; border-radius:12px; padding:22px 24px;
+  min-width:340px; max-width:460px; width:90%; box-shadow:0 8px 40px rgba(0,0,0,.5);
+}
+.ag-modal h5 { color:#e2e8f0; margin-bottom:14px; font-size:.95rem; }
+.ag-modal label { font-size:.78rem; color:#94a3b8; display:block; margin-bottom:4px; }
+.ag-modal input, .ag-modal select, .ag-modal textarea {
+  width:100%; background:#12151e; border:1px solid #2d3748; color:#e2e8f0;
+  border-radius:6px; padding:7px 10px; font-size:.83rem; margin-bottom:10px;
+}
+.ag-modal input:focus, .ag-modal select:focus, .ag-modal textarea:focus {
+  outline:none; border-color:#4a90e2;
+}
+
+/* Toast */
+#ag-toast {
+  position:fixed; bottom:24px; right:24px; z-index:9999;
+  background:#1e2430; color:#e2e8f0; padding:10px 18px;
+  border-radius:8px; font-size:.82rem; box-shadow:0 4px 20px rgba(0,0,0,.5);
+  display:none; align-items:center; gap:8px; border-left:3px solid #4a90e2;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+{% set mes_ant = (mes - 2) % 12 + 1 %}
+{% set ano_ant = ano - 1 if mes == 1 else ano %}
+{% set mes_prox = mes % 12 + 1 %}
+{% set ano_prox = ano + 1 if mes == 12 else ano %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-0 fw-bold"><i class="fas fa-calendar-days me-2 text-primary"></i>Agenda de Consultas</h4>
+    <small class="text-muted">Configure disponibilidade e gerencie agendamentos</small>
+  </div>
+</div>
+
+<div class="agenda-grid">
+
+  <!-- ── Coluna Esquerda: Configuração ─────────────── -->
+  <div>
+    <!-- Disponibilidade semanal -->
+    <div class="ag-card mb-3">
+      <h6><i class="fas fa-sliders me-1"></i>Disponibilidade Semanal</h6>
+      <form id="form-config">
+        {% for dia in config_semanal %}
+        <div class="day-row">
+          <label class="day-toggle" title="Ativar {{ dia.dia_label }}">
+            <input type="checkbox" name="ativo_{{ dia.dia_semana }}"
+                   {% if dia.ativo %}checked{% endif %}
+                   onchange="toggleDia({{ dia.dia_semana }}, this.checked)">
+            <span class="slider"></span>
+          </label>
+          <span class="day-name">{{ dias_label[dia.dia_semana] }}</span>
+          <input type="text"
+                 class="horarios-input"
+                 id="horarios_{{ dia.dia_semana }}"
+                 placeholder="09:00,10:00,14:00"
+                 value="{{ dia.horarios | join(',') }}"
+                 {% if not dia.ativo %}disabled{% endif %}>
+          <input type="number" class="max-input"
+                 id="max_{{ dia.dia_semana }}"
+                 value="{{ dia.max_por_dia or 5 }}"
+                 min="1" max="20" title="Máx/dia"
+                 {% if not dia.ativo %}disabled{% endif %}>
+        </div>
+        {% endfor %}
+        <button type="button" class="btn btn-primary btn-sm w-100 mt-3" onclick="salvarConfig()">
+          <i class="fas fa-save me-1"></i>Salvar Configuração
+        </button>
+      </form>
+    </div>
+
+    <!-- Bloquear data -->
+    <div class="ag-card mb-3">
+      <h6><i class="fas fa-ban me-1"></i>Bloquear Data</h6>
+      <label>Data</label>
+      <input type="date" id="inp-bloquear-data" class="form-control form-control-sm mb-2"
+             style="background:#12151e;border-color:#2d3748;color:#e2e8f0;">
+      <label>Motivo (opcional)</label>
+      <input type="text" id="inp-bloquear-motivo" class="form-control form-control-sm mb-2"
+             placeholder="ex: Feriado, Férias..."
+             style="background:#12151e;border-color:#2d3748;color:#e2e8f0;">
+      <button class="btn btn-danger btn-sm w-100" onclick="bloquearData()">
+        <i class="fas fa-lock me-1"></i>Bloquear
+      </button>
+    </div>
+
+    <!-- Próximas datas disponíveis -->
+    <div class="ag-card">
+      <h6><i class="fas fa-clock me-1"></i>Próximas Disponíveis</h6>
+      <div id="proximas-datas">
+        <span class="text-muted" style="font-size:.78rem">Carregando...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Coluna Direita: Calendário ────────────────── -->
+  <div>
+    <div class="ag-card mb-3">
+      <!-- Navegação do mês -->
+      <div class="cal-nav">
+        <a href="{{ url_for('admin.agenda', mes=mes_ant, ano=ano_ant) }}">&#8249;</a>
+        <h5>{{ nome_mes }} {{ ano }}</h5>
+        <a href="{{ url_for('admin.agenda', mes=mes_prox, ano=ano_prox) }}">&#8250;</a>
+      </div>
+
+      <!-- Calendário -->
+      <table class="cal-table">
+        <thead>
+          <tr>
+            {% for d in ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'] %}
+            <th>{{ d }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for semana in calendario %}
+          <tr>
+            {% for dia in semana %}
+            {% if dia == 0 %}
+              <td class="cal-cell empty"></td>
+            {% else %}
+              {% set data_str = '%04d-%02d-%02d' | format(ano, mes, dia) %}
+              {% set dia_db = (namespace(v=0)) %}
+              {# Domingo=0, Segunda=1... Python calendar semana começa na Segunda(0), mas no DB Dom=0 #}
+              {# Python calendar: coluna 0=Seg...6=Dom => DB: Seg=1...Dom=0 #}
+              {% set col = loop.index0 %}
+              {# col 0=Seg=1, 1=Ter=2, 2=Qua=3, 3=Qui=4, 4=Sex=5, 5=Sab=6, 6=Dom=0 #}
+              {% set dia_semana_db = [1,2,3,4,5,6,0][col] %}
+              {% set is_ativo = dia_semana_db in dias_ativos %}
+              {% set is_bloqueado = data_str in bloqueios %}
+              {% set agts = agendamentos_mes.get(data_str, []) %}
+              {% set is_passado = data_str < hoje %}
+
+              {% set cls = 'cal-cell' %}
+              {% if is_passado %}{% set cls = cls + ' passado' %}{% endif %}
+              {% if data_str == hoje %}{% set cls = cls + ' hoje' %}{% endif %}
+              {% if is_bloqueado %}{% set cls = cls + ' bloqueado' %}
+              {% elif is_ativo and not is_passado %}{% set cls = cls + ' disponivel' %}{% endif %}
+              {% if agts %}{% set cls = cls + ' com-agt' %}{% endif %}
+
+              <td class="{{ cls }}"
+                  onclick="{% if not is_passado %}abrirDia('{{ data_str }}', {{ is_bloqueado | lower }}){% endif %}"
+                  title="{{ data_str }}{% if is_bloqueado %} — BLOQUEADO{% endif %}{% if agts %} — {{ agts|length }} agendamento(s){% endif %}">
+                <span class="cal-cell-num">{{ dia }}</span>
+                {% if is_bloqueado %}
+                  <span class="cal-lock">🔒</span>
+                {% endif %}
+                {% if agts %}
+                <div class="cal-dots">
+                  {% for a in agts[:4] %}
+                  <span class="cal-dot {{ a.status }}"></span>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </td>
+            {% endif %}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <!-- Legenda -->
+      <div class="d-flex gap-3 mt-3 flex-wrap" style="font-size:.70rem; color:#475569;">
+        <span><span style="background:#4ade80;width:9px;height:9px;border-radius:50%;display:inline-block;"></span> Disponível</span>
+        <span><span style="background:#f87171;width:9px;height:9px;border-radius:50%;display:inline-block;"></span> Bloqueado</span>
+        <span><span style="background:#fbbf24;width:9px;height:9px;border-radius:50%;display:inline-block;"></span> Pendente</span>
+        <span><span style="background:#4ade80;width:9px;height:9px;border-radius:50%;display:inline-block;"></span> Confirmado</span>
+        <span><span style="background:#ef4444;width:9px;height:9px;border-radius:50%;display:inline-block;"></span> Cancelado</span>
+        <span><span style="background:#94a3b8;width:9px;height:9px;border-radius:50%;display:inline-block;"></span> Realizado</span>
+      </div>
+    </div>
+
+    <!-- Lista de agendamentos do dia selecionado -->
+    <div class="ag-card" id="painel-dia" style="display:none;">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h6 id="painel-dia-titulo" class="mb-0"><i class="fas fa-list me-1"></i>Agendamentos</h6>
+        <div class="d-flex gap-2">
+          <button class="btn btn-success btn-sm" id="btn-novo-agt" onclick="abrirModalNovo()">
+            <i class="fas fa-plus me-1"></i>Novo
+          </button>
+          <button class="btn btn-danger btn-sm" id="btn-bloquear-dia" onclick="bloquearDiaSelecionado()">
+            <i class="fas fa-ban me-1"></i>Bloquear dia
+          </button>
+        </div>
+      </div>
+      <div id="lista-agendamentos-dia"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Agendamento do dia ─────────────────────── -->
+<div class="ag-modal-overlay" id="modal-novo">
+  <div class="ag-modal">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5><i class="fas fa-calendar-plus me-2 text-primary"></i>Novo Agendamento</h5>
+      <button onclick="fecharModal()" style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;">✕</button>
+    </div>
+    <label>Data</label>
+    <input type="text" id="modal-data" readonly style="background:#12151e;border:1px solid #2d3748;color:#94a3b8;">
+    <label>Horário</label>
+    <select id="modal-hora">
+      <option value="">Selecione...</option>
+    </select>
+    <label>Nome do cliente</label>
+    <input type="text" id="modal-nome" placeholder="Nome completo">
+    <label>Telefone</label>
+    <input type="text" id="modal-tel" placeholder="(11) 99999-9999">
+    <label>Benefício</label>
+    <input type="text" id="modal-ben" placeholder="ex: Salário Maternidade">
+    <label>Observações</label>
+    <textarea id="modal-obs" rows="2" placeholder="Observações opcionais"></textarea>
+    <div class="d-flex gap-2">
+      <button class="btn btn-secondary btn-sm flex-fill" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-primary btn-sm flex-fill" onclick="confirmarAgendamento()">
+        <i class="fas fa-check me-1"></i>Confirmar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="ag-toast">
+  <i id="ag-toast-icon" class="fas fa-check-circle" style="color:#4ade80"></i>
+  <span id="ag-toast-msg"></span>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedDate = null;
+let selectedBloqueado = false;
+
+// ── Abrir painel do dia ──────────────────────────────
+function abrirDia(data, bloqueado) {
+  selectedDate = data;
+  selectedBloqueado = bloqueado;
+  const titulo = document.getElementById('painel-dia-titulo');
+  const btnBloquear = document.getElementById('btn-bloquear-dia');
+  titulo.innerHTML = '<i class="fas fa-list me-1"></i>Agendamentos — ' + formatarData(data);
+  btnBloquear.textContent = bloqueado ? '🔓 Desbloquear' : '🔒 Bloquear dia';
+  btnBloquear.className = bloqueado ? 'btn btn-success btn-sm' : 'btn btn-danger btn-sm';
+  document.getElementById('painel-dia').style.display = '';
+  carregarAgendamentosDia(data);
+}
+
+function carregarAgendamentosDia(data) {
+  fetch('/admin/agenda/disponibilidade/' + data)
+    .then(r => r.json())
+    .then(d => {
+      // já carregamos pelo template; usa fetch só para slots
+    });
+
+  // Busca agendamentos via endpoint com filtro de data
+  fetch('/admin/agenda/agendar?data=' + data) // workaround – carregamos do template
+    .catch(() => {});
+
+  // Renderiza agendamentos do mês já carregados (via atributos do DOM)
+  const cells = document.querySelectorAll('.cal-cell[title^="' + data + '"]');
+  const lista = document.getElementById('lista-agendamentos-dia');
+  // Reconstruiremos via API real na próxima versão; por ora, recarrega a página ao criar
+  lista.innerHTML = '<span style="color:#475569;font-size:.78rem">Clique em "Novo" para adicionar. A lista atualiza após salvar.</span>';
+}
+
+// ── Bloquear/desbloquear dia selecionado ─────────────
+function bloquearDiaSelecionado() {
+  if (!selectedDate) return;
+  if (selectedBloqueado) {
+    fetch('/admin/agenda/bloquear/' + selectedDate, { method: 'DELETE' })
+      .then(r => r.json()).then(() => { showToast('Data desbloqueada!'); setTimeout(() => location.reload(), 800); });
+  } else {
+    const motivo = prompt('Motivo do bloqueio (opcional):') || '';
+    fetch('/admin/agenda/bloquear', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({data: selectedDate, motivo})
+    }).then(r => r.json()).then(() => { showToast('Data bloqueada!'); setTimeout(() => location.reload(), 800); });
+  }
+}
+
+// ── Modal novo agendamento ───────────────────────────
+function abrirModalNovo() {
+  if (!selectedDate) { showToast('Selecione um dia no calendário primeiro.', 'error'); return; }
+  document.getElementById('modal-data').value = selectedDate + ' (' + formatarData(selectedDate) + ')';
+  document.getElementById('modal-nome').value = '';
+  document.getElementById('modal-tel').value = '';
+  document.getElementById('modal-ben').value = '';
+  document.getElementById('modal-obs').value = '';
+  // Carrega horários disponíveis
+  fetch('/admin/agenda/disponibilidade/' + selectedDate)
+    .then(r => r.json())
+    .then(d => {
+      const sel = document.getElementById('modal-hora');
+      sel.innerHTML = '<option value="">Selecione...</option>';
+      (d.horarios || []).forEach(h => {
+        const opt = document.createElement('option');
+        opt.value = h; opt.textContent = h;
+        sel.appendChild(opt);
+      });
+      if (!(d.horarios || []).length) {
+        sel.innerHTML = '<option value="">Sem horários disponíveis</option>';
+      }
+    });
+  document.getElementById('modal-novo').classList.add('show');
+}
+
+function fecharModal() {
+  document.getElementById('modal-novo').classList.remove('show');
+}
+
+function confirmarAgendamento() {
+  const hora = document.getElementById('modal-hora').value;
+  if (!hora) { showToast('Selecione um horário.', 'error'); return; }
+  const body = {
+    session_id: 0,
+    data: selectedDate,
+    hora,
+    nome_cliente: document.getElementById('modal-nome').value,
+    telefone: document.getElementById('modal-tel').value,
+    beneficio: document.getElementById('modal-ben').value,
+  };
+  fetch('/admin/agenda/agendar', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      showToast('Agendamento criado com sucesso!');
+      fecharModal();
+      setTimeout(() => location.reload(), 800);
+    } else {
+      showToast(d.message || 'Erro ao agendar.', 'error');
+    }
+  });
+}
+
+// ── Salvar configuração semanal ──────────────────────
+function salvarConfig() {
+  const dias = [];
+  for (let d = 0; d <= 6; d++) {
+    const chk = document.querySelector(`input[name="ativo_${d}"]`);
+    if (!chk) continue;
+    const horariosStr = document.getElementById('horarios_' + d).value || '';
+    const horarios = horariosStr.split(',').map(h => h.trim()).filter(h => /^\d{2}:\d{2}$/.test(h));
+    dias.push({
+      dia_semana: d,
+      ativo: chk.checked,
+      horarios,
+      max_por_dia: parseInt(document.getElementById('max_' + d).value) || 5
+    });
+  }
+  fetch('/admin/agenda/config', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({dias})
+  })
+  .then(r => r.json())
+  .then(d => showToast(d.message || 'Salvo!', d.status === 'success' ? 'success' : 'error'));
+}
+
+function toggleDia(dia, ativo) {
+  document.getElementById('horarios_' + dia).disabled = !ativo;
+  document.getElementById('max_' + dia).disabled = !ativo;
+}
+
+// ── Bloquear data pelo painel lateral ───────────────
+function bloquearData() {
+  const data = document.getElementById('inp-bloquear-data').value;
+  const motivo = document.getElementById('inp-bloquear-motivo').value;
+  if (!data) { showToast('Informe a data.', 'error'); return; }
+  fetch('/admin/agenda/bloquear', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({data, motivo})
+  }).then(r => r.json()).then(d => {
+    showToast(d.status === 'success' ? 'Data bloqueada!' : 'Erro.', d.status);
+    if (d.status === 'success') setTimeout(() => location.reload(), 800);
+  });
+}
+
+// ── Próximas datas disponíveis ───────────────────────
+function carregarProximas() {
+  fetch('/admin/agenda/proximas?qtd=4')
+    .then(r => r.json())
+    .then(d => {
+      const el = document.getElementById('proximas-datas');
+      if (!(d.datas || []).length) {
+        el.innerHTML = '<span style="color:#475569;font-size:.78rem">Nenhuma data disponível configurada.</span>';
+        return;
+      }
+      el.innerHTML = d.datas.map(dt => `
+        <div style="padding:6px 0; border-bottom:1px solid #2d3748; font-size:.78rem; color:#e2e8f0;">
+          <strong>${dt.dia_semana_abrev} ${dt.data_br}</strong>
+          <span style="color:#94a3b8;"> — ${dt.horarios.length} horário(s)</span><br>
+          <span style="color:#60a5fa;">${dt.horarios.join('  •  ')}</span>
+        </div>
+      `).join('');
+    });
+}
+
+// ── Utilitários ──────────────────────────────────────
+function formatarData(data) {
+  const [a, m, d] = data.split('-');
+  return `${d}/${m}/${a}`;
+}
+
+function showToast(msg, type = 'success') {
+  const toast = document.getElementById('ag-toast');
+  document.getElementById('ag-toast-icon').className =
+    type === 'success' ? 'fas fa-check-circle' : 'fas fa-circle-exclamation';
+  document.getElementById('ag-toast-icon').style.color =
+    type === 'success' ? '#4ade80' : '#f87171';
+  document.getElementById('ag-toast-msg').textContent = msg;
+  toast.style.display = 'flex';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+}
+
+// Init
+carregarProximas();
+</script>
+{% endblock %}
