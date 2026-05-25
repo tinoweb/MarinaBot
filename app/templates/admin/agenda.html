@@ -3,336 +3,636 @@
 
 {% block extra_css %}
 <style>
-/* ── Layout ────────────────────────────────────────── */
-.agenda-grid { display: grid; grid-template-columns: 320px 1fr; gap: 20px; align-items: start; }
-@media(max-width:900px){ .agenda-grid { grid-template-columns: 1fr; } }
+/* ── Variáveis ──────────────────────────────────────── */
+:root {
+  --ag-bg:      #0f1117;
+  --ag-surface: #161b27;
+  --ag-card:    #1c2235;
+  --ag-border:  #252f45;
+  --ag-hover:   #202840;
+  --ag-primary: #4f8ef7;
+  --ag-green:   #34d399;
+  --ag-red:     #f87171;
+  --ag-yellow:  #fbbf24;
+  --ag-muted:   #64748b;
+  --ag-text:    #e2e8f0;
+}
 
-/* ── Card genérico ─────────────────────────────────── */
-.ag-card { background:#1e2430; border-radius:10px; padding:18px; }
-.ag-card h6 { color:#94a3b8; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; margin-bottom:12px; }
+/* ── Layout principal ───────────────────────────────── */
+.ag-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media(max-width:1024px){ .ag-layout { grid-template-columns: 1fr; } }
 
-/* ── Dias semana ───────────────────────────────────── */
-.day-row { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #2d3748; }
-.day-row:last-child { border-bottom:none; }
-.day-toggle { position:relative; width:38px; height:20px; flex-shrink:0; }
-.day-toggle input { opacity:0; width:0; height:0; }
+/* ── Card base ──────────────────────────────────────── */
+.ag-card {
+  background: var(--ag-card);
+  border: 1px solid var(--ag-border);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 14px;
+}
+.ag-card:last-child { margin-bottom: 0; }
+.ag-card-title {
+  font-size: .68rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ag-muted);
+  margin-bottom: 14px; display: flex; align-items: center; gap: 6px;
+}
+
+/* ── Tabs sidebar ───────────────────────────────────── */
+.ag-tabs {
+  display: flex; gap: 4px; margin-bottom: 16px;
+  background: var(--ag-surface); border-radius: 10px; padding: 4px;
+}
+.ag-tab {
+  flex: 1; text-align: center; padding: 7px 6px;
+  font-size: .72rem; font-weight: 600; color: var(--ag-muted);
+  border-radius: 7px; cursor: pointer; transition: all .15s; border: none;
+  background: none;
+}
+.ag-tab.active {
+  background: var(--ag-primary); color: #fff;
+  box-shadow: 0 2px 8px rgba(79,142,247,.35);
+}
+.ag-tab-panel { display: none; }
+.ag-tab-panel.active { display: block; }
+
+/* ── Day row – layout em 2 linhas ───────────────────── */
+.day-row {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--ag-border);
+}
+.day-row:last-child { border-bottom: none; }
+.day-row-top {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+}
+.day-toggle { position: relative; width: 36px; height: 19px; flex-shrink: 0; }
+.day-toggle input { opacity: 0; width: 0; height: 0; }
 .day-toggle .slider {
-  position:absolute; inset:0; background:#374151; border-radius:20px; cursor:pointer; transition:.2s;
+  position: absolute; inset: 0; background: #2d3748;
+  border-radius: 20px; cursor: pointer; transition: .2s;
 }
-.day-toggle input:checked + .slider { background:#4a90e2; }
+.day-toggle input:checked + .slider { background: var(--ag-primary); }
 .day-toggle .slider::before {
-  content:''; position:absolute; width:14px; height:14px; left:3px; bottom:3px;
-  background:#fff; border-radius:50%; transition:.2s;
+  content: ''; position: absolute; width: 13px; height: 13px;
+  left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s;
 }
-.day-toggle input:checked + .slider::before { transform:translateX(18px); }
-.day-name { width:72px; font-size:.82rem; color:#cbd5e1; font-weight:600; }
-.horarios-input {
-  flex:1; background:#12151e; border:1px solid #2d3748; color:#e2e8f0;
-  border-radius:5px; padding:3px 7px; font-size:.75rem;
+.day-toggle input:checked + .slider::before { transform: translateX(17px); }
+.day-name {
+  font-size: .82rem; color: var(--ag-text); font-weight: 700; flex: 1;
 }
-.horarios-input:focus { outline:none; border-color:#4a90e2; }
+.max-label {
+  font-size: .65rem; color: var(--ag-muted); white-space: nowrap;
+}
 .max-input {
-  width:46px; background:#12151e; border:1px solid #2d3748; color:#e2e8f0;
-  border-radius:5px; padding:3px 6px; font-size:.75rem; text-align:center;
+  width: 42px; background: var(--ag-surface); border: 1px solid var(--ag-border);
+  color: var(--ag-text); border-radius: 6px; padding: 3px 5px;
+  font-size: .75rem; text-align: center;
+}
+.max-input:focus { outline: none; border-color: var(--ag-primary); }
+.day-row-bottom { display: flex; gap: 6px; align-items: center; }
+.horarios-input {
+  flex: 1; min-width: 0;
+  background: var(--ag-surface); border: 1px solid var(--ag-border);
+  color: var(--ag-text); border-radius: 6px; padding: 5px 8px;
+  font-size: .74rem; font-family: 'Courier New', monospace;
+}
+.horarios-input::placeholder { color: var(--ag-muted); }
+.horarios-input:focus { outline: none; border-color: var(--ag-primary); }
+.horarios-input:disabled, .max-input:disabled { opacity: .35; }
+.horarios-hint {
+  font-size: .63rem; color: var(--ag-muted); margin-top: 3px;
+  padding-left: 2px;
 }
 
-/* ── Calendário ────────────────────────────────────── */
-.cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-.cal-nav h5 { margin:0; font-size:1rem; color:#e2e8f0; font-weight:700; }
-.cal-nav a { color:#4a90e2; text-decoration:none; font-size:1.1rem; padding:2px 8px; }
-.cal-table { width:100%; border-collapse:separate; border-spacing:4px; }
-.cal-table th {
-  text-align:center; font-size:.68rem; color:#475569; text-transform:uppercase;
-  letter-spacing:.05em; padding:4px;
+/* ── Input padrão no card ───────────────────────────── */
+.ag-input {
+  width: 100%; background: var(--ag-surface); border: 1px solid var(--ag-border);
+  color: var(--ag-text); border-radius: 8px; padding: 8px 12px;
+  font-size: .83rem; margin-bottom: 10px; font-family: inherit;
+}
+.ag-input:focus { outline: none; border-color: var(--ag-primary); }
+.ag-label { font-size: .72rem; color: var(--ag-muted); display: block; margin-bottom: 4px; }
+
+/* ── Botões ─────────────────────────────────────────── */
+.btn-ag-primary {
+  background: var(--ag-primary); color: #fff; border: none; border-radius: 8px;
+  padding: 9px 16px; font-size: .82rem; font-weight: 700; cursor: pointer;
+  width: 100%; font-family: inherit; transition: background .15s;
+}
+.btn-ag-primary:hover { background: #3a7ae8; }
+.btn-ag-danger {
+  background: rgba(248,113,113,.12); color: var(--ag-red);
+  border: 1px solid rgba(248,113,113,.25); border-radius: 8px;
+  padding: 9px 16px; font-size: .82rem; font-weight: 700; cursor: pointer;
+  width: 100%; font-family: inherit; transition: all .15s;
+}
+.btn-ag-danger:hover { background: rgba(248,113,113,.2); }
+
+/* ── Link box ───────────────────────────────────────── */
+.link-box {
+  display: flex; gap: 6px; align-items: stretch; margin-top: 8px;
+}
+.link-input {
+  flex: 1; min-width: 0; background: var(--ag-surface);
+  border: 1px solid var(--ag-border); color: var(--ag-primary);
+  border-radius: 8px; padding: 8px 10px; font-size: .73rem;
+  font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.link-btn {
+  background: var(--ag-surface); border: 1px solid var(--ag-border);
+  color: var(--ag-text); border-radius: 8px; padding: 0 12px;
+  cursor: pointer; transition: background .15s; font-size: .82rem;
+  display: flex; align-items: center;
+}
+.link-btn:hover { background: var(--ag-hover); border-color: var(--ag-primary); }
+
+/* ── Próximas datas ─────────────────────────────────── */
+.proxima-item {
+  padding: 8px 0; border-bottom: 1px solid var(--ag-border);
+  cursor: pointer; transition: background .1s;
+}
+.proxima-item:last-child { border-bottom: none; }
+.proxima-item:hover { background: var(--ag-hover); margin: 0 -20px; padding: 8px 20px; border-radius: 6px; }
+.proxima-date { font-size: .8rem; color: var(--ag-text); font-weight: 700; }
+.proxima-slots { font-size: .7rem; color: var(--ag-primary); margin-top: 2px; }
+.proxima-count { font-size: .68rem; color: var(--ag-muted); }
+
+/* ── Calendário ─────────────────────────────────────── */
+.cal-header-row {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+}
+.cal-header-row h5 { font-size: 1rem; font-weight: 800; color: var(--ag-text); margin: 0; }
+.cal-nav-btn {
+  background: var(--ag-surface); border: 1px solid var(--ag-border);
+  color: var(--ag-text); border-radius: 8px; width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  text-decoration: none; font-size: 1rem; transition: background .15s;
+}
+.cal-nav-btn:hover { background: var(--ag-hover); color: var(--ag-text); }
+
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-dow {
+  text-align: center; font-size: .62rem; font-weight: 700; color: var(--ag-muted);
+  text-transform: uppercase; letter-spacing: .04em; padding: 4px 0 8px;
 }
 .cal-cell {
-  text-align:center; vertical-align:top; border-radius:8px; padding:6px 4px;
-  min-height:62px; font-size:.78rem; cursor:pointer; position:relative;
+  aspect-ratio: 1; border-radius: 10px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; cursor: pointer;
+  transition: all .15s; position: relative; overflow: hidden;
+  font-size: .8rem; font-weight: 700;
+}
+.cal-cell.empty { cursor: default; }
+.cal-cell.passado { color: #2d3748; cursor: default; }
+.cal-cell.indisponivel { color: #374151; }
+.cal-cell.indisponivel:hover { background: var(--ag-hover); }
+.cal-cell.hoje {
+  background: rgba(79,142,247,.12); color: var(--ag-primary);
+  border: 1.5px solid rgba(79,142,247,.35);
+}
+.cal-cell.disponivel {
+  background: rgba(52,211,153,.08); color: var(--ag-green);
+}
+.cal-cell.disponivel:hover { background: rgba(52,211,153,.18); }
+.cal-cell.bloqueado {
+  background: rgba(248,113,113,.08); color: var(--ag-red);
+}
+.cal-cell.com-agt { background: rgba(79,142,247,.1); }
+.cal-cell.selected {
+  background: var(--ag-primary) !important; color: #fff !important;
+  box-shadow: 0 4px 14px rgba(79,142,247,.4);
+}
+.cal-num { font-size: .8rem; font-weight: 800; line-height: 1; }
+.cal-dots {
+  display: flex; gap: 2px; justify-content: center;
+  flex-wrap: wrap; margin-top: 2px;
+}
+.cal-dot {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--ag-muted);
+}
+.cal-dot.pendente   { background: var(--ag-yellow); }
+.cal-dot.confirmado { background: var(--ag-green); }
+.cal-dot.cancelado  { background: var(--ag-red); }
+.cal-dot.realizado  { background: var(--ag-muted); }
+.cal-lock { font-size: .55rem; }
+
+/* ── Legenda ────────────────────────────────────────── */
+.cal-legend {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px;
+  padding-top: 14px; border-top: 1px solid var(--ag-border);
+  font-size: .68rem; color: var(--ag-muted);
+}
+.cal-legend-item { display: flex; align-items: center; gap: 5px; }
+.cal-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── Painel de agendamentos do dia ──────────────────── */
+.painel-dia {
+  background: var(--ag-card); border: 1px solid var(--ag-border);
+  border-radius: 14px; padding: 20px; margin-top: 0;
+  display: none;
+}
+.painel-dia-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
+}
+.painel-dia-titulo {
+  font-size: .95rem; font-weight: 800; color: var(--ag-text); margin: 0;
+}
+.painel-actions { display: flex; gap: 8px; }
+
+/* ── Tabela de agendamentos ─────────────────────────── */
+.agt-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+.agt-table thead th {
+  font-size: .65rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--ag-muted); padding: 0 12px 6px;
+}
+.agt-row {
+  background: var(--ag-surface); border-radius: 8px;
   transition: background .15s;
 }
-.cal-cell.empty { background:transparent; cursor:default; }
-.cal-cell.disponivel { background:#1a3a2a; color:#4ade80; }
-.cal-cell.disponivel:hover { background:#1f4535; }
-.cal-cell.bloqueado { background:#3a1a1a; color:#f87171; }
-.cal-cell.com-agt { background:#1a2a3a; color:#60a5fa; }
-.cal-cell.com-agt.disponivel { background:#1a2f3a; }
-.cal-cell.hoje { outline:2px solid #4a90e2; outline-offset:-2px; }
-.cal-cell.passado { opacity:.45; cursor:default; }
-.cal-cell-num { font-weight:700; margin-bottom:2px; display:block; }
-.cal-dots { display:flex; gap:2px; justify-content:center; flex-wrap:wrap; margin-top:2px; }
-.cal-dot {
-  width:6px; height:6px; border-radius:50%;
-  background:#60a5fa; display:inline-block;
+.agt-row:hover { background: var(--ag-hover); }
+.agt-row td {
+  padding: 11px 12px; font-size: .82rem; color: var(--ag-text);
+  border-top: 1px solid var(--ag-border); border-bottom: 1px solid var(--ag-border);
 }
-.cal-dot.pendente { background:#fbbf24; }
-.cal-dot.confirmado { background:#4ade80; }
-.cal-dot.cancelado { background:#ef4444; }
-.cal-dot.realizado { background:#94a3b8; }
-.cal-lock { font-size:.6rem; opacity:.7; }
+.agt-row td:first-child { border-left: 1px solid var(--ag-border); border-radius: 8px 0 0 8px; }
+.agt-row td:last-child  { border-right: 1px solid var(--ag-border); border-radius: 0 8px 8px 0; }
+.agt-hora { font-size: .9rem; font-weight: 800; color: var(--ag-primary); }
+.agt-nome { font-weight: 700; }
+.agt-sub  { font-size: .7rem; color: var(--ag-muted); margin-top: 1px; }
+.agt-badge {
+  display: inline-flex; align-items: center; padding: 3px 9px;
+  border-radius: 20px; font-size: .65rem; font-weight: 700; white-space: nowrap;
+}
+.agt-badge.pendente   { background: rgba(251,191,36,.12);  color: var(--ag-yellow); }
+.agt-badge.confirmado { background: rgba(52,211,153,.12);  color: var(--ag-green);  }
+.agt-badge.cancelado  { background: rgba(248,113,113,.12); color: var(--ag-red);    }
+.agt-badge.realizado  { background: rgba(100,116,139,.12); color: var(--ag-muted);  }
+.agt-action-btn {
+  background: none; border: 1px solid var(--ag-border); color: var(--ag-muted);
+  border-radius: 6px; padding: 4px 8px; font-size: .7rem; cursor: pointer;
+  transition: all .15s;
+}
+.agt-action-btn:hover { border-color: var(--ag-primary); color: var(--ag-primary); }
+.agt-empty {
+  text-align: center; padding: 28px 0; color: var(--ag-muted); font-size: .82rem;
+}
 
-/* ── Lista agendamentos ────────────────────────────── */
-.agt-item {
-  background:#252d3d; border-radius:8px; padding:10px 12px;
-  margin-bottom:8px; display:flex; align-items:center; gap:10px;
+/* ── Stats header ───────────────────────────────────── */
+.ag-stats {
+  display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
 }
-.agt-hora { font-size:1rem; font-weight:700; color:#60a5fa; min-width:42px; }
-.agt-info { flex:1; }
-.agt-nome { font-size:.85rem; color:#e2e8f0; font-weight:600; }
-.agt-ben { font-size:.72rem; color:#94a3b8; }
-.agt-status {
-  font-size:.65rem; padding:2px 8px; border-radius:10px; font-weight:700;
+.ag-stat {
+  background: var(--ag-surface); border: 1px solid var(--ag-border);
+  border-radius: 10px; padding: 10px 14px; flex: 1; min-width: 80px;
+  text-align: center;
 }
-.agt-status.pendente   { background:#ca8a0433; color:#fbbf24; }
-.agt-status.confirmado { background:#16a34a33; color:#4ade80; }
-.agt-status.cancelado  { background:#dc262633; color:#f87171; }
-.agt-status.realizado  { background:#47556933; color:#94a3b8; }
+.ag-stat-num { font-size: 1.2rem; font-weight: 800; color: var(--ag-text); }
+.ag-stat-lbl { font-size: .62rem; color: var(--ag-muted); margin-top: 2px; }
+.ag-stat.accent-blue  .ag-stat-num { color: var(--ag-primary); }
+.ag-stat.accent-green .ag-stat-num { color: var(--ag-green);  }
+.ag-stat.accent-yellow .ag-stat-num { color: var(--ag-yellow); }
 
-/* ── Modal ─────────────────────────────────────────── */
-.ag-modal-overlay {
-  display:none; position:fixed; inset:0; background:rgba(0,0,0,.6);
-  z-index:1050; align-items:center; justify-content:center;
+/* ── Modal ──────────────────────────────────────────── */
+.ag-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.65); z-index: 1060;
+  align-items: center; justify-content: center;
 }
-.ag-modal-overlay.show { display:flex; }
+.ag-overlay.show { display: flex; }
 .ag-modal {
-  background:#1e2430; border-radius:12px; padding:22px 24px;
-  min-width:340px; max-width:460px; width:90%; box-shadow:0 8px 40px rgba(0,0,0,.5);
+  background: var(--ag-card); border: 1px solid var(--ag-border);
+  border-radius: 16px; padding: 24px; width: 90%; max-width: 460px;
+  box-shadow: 0 12px 50px rgba(0,0,0,.5);
 }
-.ag-modal h5 { color:#e2e8f0; margin-bottom:14px; font-size:.95rem; }
-.ag-modal label { font-size:.78rem; color:#94a3b8; display:block; margin-bottom:4px; }
-.ag-modal input, .ag-modal select, .ag-modal textarea {
-  width:100%; background:#12151e; border:1px solid #2d3748; color:#e2e8f0;
-  border-radius:6px; padding:7px 10px; font-size:.83rem; margin-bottom:10px;
+.ag-modal-title {
+  font-size: .95rem; font-weight: 800; color: var(--ag-text);
+  margin: 0 0 16px; display: flex; align-items: center; justify-content: space-between;
 }
-.ag-modal input:focus, .ag-modal select:focus, .ag-modal textarea:focus {
-  outline:none; border-color:#4a90e2;
+.ag-modal-close {
+  background: none; border: none; color: var(--ag-muted);
+  font-size: 1.1rem; cursor: pointer; padding: 0;
+}
+.ag-modal-close:hover { color: var(--ag-text); }
+.ag-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.ag-modal-full { grid-column: 1 / -1; }
+
+/* ── Toast ──────────────────────────────────────────── */
+#ag-toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  background: var(--ag-card); color: var(--ag-text);
+  padding: 12px 18px; border-radius: 10px;
+  font-size: .82rem; display: none; align-items: center; gap: 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.5); border-left: 3px solid var(--ag-primary);
+  max-width: 320px;
 }
 
-/* Toast */
-#ag-toast {
-  position:fixed; bottom:24px; right:24px; z-index:9999;
-  background:#1e2430; color:#e2e8f0; padding:10px 18px;
-  border-radius:8px; font-size:.82rem; box-shadow:0 4px 20px rgba(0,0,0,.5);
-  display:none; align-items:center; gap:8px; border-left:3px solid #4a90e2;
+/* ── Status change select ───────────────────────────── */
+.status-select {
+  background: var(--ag-surface); border: 1px solid var(--ag-border);
+  color: var(--ag-text); border-radius: 6px; padding: 4px 8px;
+  font-size: .72rem; cursor: pointer;
 }
+.status-select:focus { outline: none; border-color: var(--ag-primary); }
 </style>
 {% endblock %}
 
 {% block content %}
-{% set mes_ant = (mes - 2) % 12 + 1 %}
-{% set ano_ant = ano - 1 if mes == 1 else ano %}
+{% set mes_ant  = (mes - 2) % 12 + 1 %}
+{% set ano_ant  = ano - 1 if mes == 1 else ano %}
 {% set mes_prox = mes % 12 + 1 %}
 {% set ano_prox = ano + 1 if mes == 12 else ano %}
 
-<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+<!-- Cabeçalho -->
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
   <div>
-    <h4 class="mb-0 fw-bold"><i class="fas fa-calendar-days me-2 text-primary"></i>Agenda de Consultas</h4>
+    <h4 class="mb-0 fw-bold">
+      <i class="fas fa-calendar-days me-2" style="color:var(--ag-primary)"></i>Agenda de Consultas
+    </h4>
     <small class="text-muted">Configure disponibilidade e gerencie agendamentos</small>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-sm btn-outline-secondary" onclick="abrirModalNovo()">
+      <i class="fas fa-plus me-1"></i>Novo Agendamento
+    </button>
+    <a href="/agendar" target="_blank" class="btn btn-sm btn-outline-primary">
+      <i class="fas fa-external-link-alt me-1"></i>Ver Página Pública
+    </a>
   </div>
 </div>
 
-<div class="agenda-grid">
+<div class="ag-layout">
 
-  <!-- ── Coluna Esquerda: Configuração ─────────────── -->
+  <!-- ═══════════════════════════════════════════════════
+       COLUNA ESQUERDA — sidebar de configuração
+  ════════════════════════════════════════════════════ -->
   <div>
-    <!-- Disponibilidade semanal -->
-    <div class="ag-card mb-3">
-      <h6><i class="fas fa-sliders me-1"></i>Disponibilidade Semanal</h6>
-      <form id="form-config">
-        {% for dia in config_semanal %}
-        <div class="day-row">
-          <label class="day-toggle" title="Ativar {{ dia.dia_label }}">
-            <input type="checkbox" name="ativo_{{ dia.dia_semana }}"
-                   {% if dia.ativo %}checked{% endif %}
-                   onchange="toggleDia({{ dia.dia_semana }}, this.checked)">
-            <span class="slider"></span>
-          </label>
-          <span class="day-name">{{ dias_label[dia.dia_semana] }}</span>
-          <input type="text"
-                 class="horarios-input"
-                 id="horarios_{{ dia.dia_semana }}"
-                 placeholder="09:00,10:00,14:00"
-                 value="{{ dia.horarios | join(',') }}"
-                 {% if not dia.ativo %}disabled{% endif %}>
-          <input type="number" class="max-input"
-                 id="max_{{ dia.dia_semana }}"
-                 value="{{ dia.max_por_dia or 5 }}"
-                 min="1" max="20" title="Máx/dia"
-                 {% if not dia.ativo %}disabled{% endif %}>
-        </div>
-        {% endfor %}
-        <button type="button" class="btn btn-primary btn-sm w-100 mt-3" onclick="salvarConfig()">
-          <i class="fas fa-save me-1"></i>Salvar Configuração
-        </button>
-      </form>
-    </div>
-
-    <!-- Bloquear data -->
-    <div class="ag-card mb-3">
-      <h6><i class="fas fa-ban me-1"></i>Bloquear Data</h6>
-      <label>Data</label>
-      <input type="date" id="inp-bloquear-data" class="form-control form-control-sm mb-2"
-             style="background:#12151e;border-color:#2d3748;color:#e2e8f0;">
-      <label>Motivo (opcional)</label>
-      <input type="text" id="inp-bloquear-motivo" class="form-control form-control-sm mb-2"
-             placeholder="ex: Feriado, Férias..."
-             style="background:#12151e;border-color:#2d3748;color:#e2e8f0;">
-      <button class="btn btn-danger btn-sm w-100" onclick="bloquearData()">
-        <i class="fas fa-lock me-1"></i>Bloquear
+    <!-- Tabs -->
+    <div class="ag-tabs">
+      <button class="ag-tab active" onclick="switchTab('config', this)">
+        <i class="fas fa-sliders me-1"></i>Disponib.
+      </button>
+      <button class="ag-tab" onclick="switchTab('bloquear', this)">
+        <i class="fas fa-ban me-1"></i>Bloquear
+      </button>
+      <button class="ag-tab" onclick="switchTab('link', this)">
+        <i class="fas fa-link me-1"></i>Link
       </button>
     </div>
 
-    <!-- Link público de agendamento -->
-    <div class="ag-card mb-3">
-      <h6><i class="fas fa-link me-1"></i>Link de Agendamento</h6>
-      <p style="font-size:.74rem;color:#94a3b8;margin-bottom:8px;">
-        Compartilhe este link com os clientes para que agendem diretamente.
-      </p>
-      <div style="display:flex;gap:6px;align-items:center;">
-        <input type="text" id="booking-link-input" readonly
-               value="{{ request.host_url.rstrip('/') }}/agendar"
-               style="flex:1;background:#12151e;border:1px solid #2d3748;color:#60a5fa;
-                      border-radius:5px;padding:6px 10px;font-size:.72rem;">
-        <button onclick="copiarLink()" class="btn btn-primary btn-sm" title="Copiar link">
-          <i class="fas fa-copy"></i>
-        </button>
-        <a href="/agendar" target="_blank" class="btn btn-secondary btn-sm" title="Abrir">
-          <i class="fas fa-external-link-alt"></i>
-        </a>
-      </div>
-      <div id="link-copiado" style="display:none;color:#4ade80;font-size:.72rem;margin-top:6px;">
-        <i class="fas fa-check"></i> Link copiado!
+    <!-- Tab: Disponibilidade semanal -->
+    <div id="tab-config" class="ag-tab-panel active">
+      <div class="ag-card">
+        <div class="ag-card-title">
+          <i class="fas fa-sliders"></i> Disponibilidade Semanal
+        </div>
+        <form id="form-config">
+          {% for dia in config_semanal %}
+          <div class="day-row">
+            <div class="day-row-top">
+              <label class="day-toggle" title="{{ dias_label[dia.dia_semana] }}">
+                <input type="checkbox" name="ativo_{{ dia.dia_semana }}"
+                       {% if dia.ativo %}checked{% endif %}
+                       onchange="toggleDia({{ dia.dia_semana }}, this.checked)">
+                <span class="slider"></span>
+              </label>
+              <span class="day-name">{{ dias_label[dia.dia_semana] }}</span>
+              <span class="max-label">Máx:</span>
+              <input type="number" class="max-input"
+                     id="max_{{ dia.dia_semana }}"
+                     value="{{ dia.max_por_dia or 5 }}"
+                     min="1" max="20"
+                     {% if not dia.ativo %}disabled{% endif %}>
+            </div>
+            <div class="day-row-bottom">
+              <input type="text"
+                     class="horarios-input"
+                     id="horarios_{{ dia.dia_semana }}"
+                     placeholder="09:00,10:00,14:00,15:00"
+                     value="{{ dia.horarios | join(',') }}"
+                     {% if not dia.ativo %}disabled{% endif %}>
+            </div>
+            <div class="horarios-hint">Horários separados por vírgula</div>
+          </div>
+          {% endfor %}
+          <button type="button" class="btn-ag-primary mt-3" onclick="salvarConfig()">
+            <i class="fas fa-save me-2"></i>Salvar Configuração
+          </button>
+        </form>
       </div>
     </div>
 
-    <!-- Próximas datas disponíveis -->
-    <div class="ag-card">
-      <h6><i class="fas fa-clock me-1"></i>Próximas Disponíveis</h6>
-      <div id="proximas-datas">
-        <span class="text-muted" style="font-size:.78rem">Carregando...</span>
+    <!-- Tab: Bloquear data -->
+    <div id="tab-bloquear" class="ag-tab-panel">
+      <div class="ag-card">
+        <div class="ag-card-title"><i class="fas fa-ban"></i> Bloquear Data</div>
+        <label class="ag-label">Data *</label>
+        <input type="date" id="inp-bloquear-data" class="ag-input">
+        <label class="ag-label">Motivo (opcional)</label>
+        <input type="text" id="inp-bloquear-motivo" class="ag-input"
+               placeholder="ex: Feriado, Férias, Evento...">
+        <button class="btn-ag-danger" onclick="bloquearData()">
+          <i class="fas fa-lock me-2"></i>Bloquear Data
+        </button>
+        <hr style="border-color:var(--ag-border);margin:16px 0 12px">
+        <div class="ag-card-title"><i class="fas fa-unlock"></i> Desbloquear</div>
+        <label class="ag-label">Data bloqueada</label>
+        <input type="date" id="inp-desbloquear-data" class="ag-input">
+        <button class="btn-ag-primary" onclick="desbloquearData()">
+          <i class="fas fa-unlock me-2"></i>Desbloquear Data
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab: Link público -->
+    <div id="tab-link" class="ag-tab-panel">
+      <div class="ag-card">
+        <div class="ag-card-title"><i class="fas fa-share-nodes"></i> Link Público</div>
+        <p style="font-size:.78rem;color:var(--ag-muted);line-height:1.6;margin-bottom:12px;">
+          Compartilhe este link com os clientes. Eles escolhem a data e horário diretamente,
+          sem precisar entrar em contato.
+        </p>
+        <div class="link-box">
+          <input type="text" class="link-input" id="booking-link-input"
+                 readonly value="{{ request.host_url.rstrip('/') }}/agendar">
+          <button class="link-btn" onclick="copiarLink()" title="Copiar">
+            <i class="fas fa-copy"></i>
+          </button>
+          <a href="/agendar" target="_blank" class="link-btn" title="Abrir">
+            <i class="fas fa-external-link-alt"></i>
+          </a>
+        </div>
+        <div id="link-copiado" style="display:none;color:var(--ag-green);font-size:.72rem;margin-top:6px;">
+          <i class="fas fa-check me-1"></i>Link copiado!
+        </div>
+        <hr style="border-color:var(--ag-border);margin:16px 0 14px">
+        <div class="ag-card-title"><i class="fas fa-clock"></i> Próximas Disponíveis</div>
+        <div id="proximas-datas">
+          <span style="color:var(--ag-muted);font-size:.78rem">Carregando...</span>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ── Coluna Direita: Calendário ────────────────── -->
+  <!-- ═══════════════════════════════════════════════════
+       COLUNA DIREITA — calendário + agendamentos
+  ════════════════════════════════════════════════════ -->
   <div>
-    <div class="ag-card mb-3">
-      <!-- Navegação do mês -->
-      <div class="cal-nav">
-        <a href="{{ url_for('admin.agenda', mes=mes_ant, ano=ano_ant) }}">&#8249;</a>
+    <!-- Calendário -->
+    <div class="ag-card" style="margin-bottom:14px;">
+      <div class="cal-header-row">
+        <a class="cal-nav-btn"
+           href="{{ url_for('admin.agenda', mes=mes_ant, ano=ano_ant) }}">&#8249;</a>
         <h5>{{ nome_mes }} {{ ano }}</h5>
-        <a href="{{ url_for('admin.agenda', mes=mes_prox, ano=ano_prox) }}">&#8250;</a>
+        <a class="cal-nav-btn"
+           href="{{ url_for('admin.agenda', mes=mes_prox, ano=ano_prox) }}">›</a>
       </div>
 
-      <!-- Calendário -->
-      <table class="cal-table">
-        <thead>
-          <tr>
-            {% for d in ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'] %}
-            <th>{{ d }}</th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for semana in calendario %}
-          <tr>
-            {% for dia in semana %}
+      <!-- Dias da semana -->
+      <div class="cal-grid">
+        {% for d in ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'] %}
+        <div class="cal-dow">{{ d }}</div>
+        {% endfor %}
+
+        {% for semana in calendario %}
+          {% for dia in semana %}
             {% if dia == 0 %}
-              <td class="cal-cell empty"></td>
+              <div class="cal-cell empty"></div>
             {% else %}
               {% set data_str = '%04d-%02d-%02d' | format(ano, mes, dia) %}
-              {% set dia_db = (namespace(v=0)) %}
-              {# Domingo=0, Segunda=1... Python calendar semana começa na Segunda(0), mas no DB Dom=0 #}
-              {# Python calendar: coluna 0=Seg...6=Dom => DB: Seg=1...Dom=0 #}
               {% set col = loop.index0 %}
-              {# col 0=Seg=1, 1=Ter=2, 2=Qua=3, 3=Qui=4, 4=Sex=5, 5=Sab=6, 6=Dom=0 #}
               {% set dia_semana_db = [1,2,3,4,5,6,0][col] %}
-              {% set is_ativo = dia_semana_db in dias_ativos %}
+              {% set is_ativo     = dia_semana_db in dias_ativos %}
               {% set is_bloqueado = data_str in bloqueios %}
-              {% set agts = agendamentos_mes.get(data_str, []) %}
-              {% set is_passado = data_str < hoje %}
+              {% set agts         = agendamentos_mes.get(data_str, []) %}
+              {% set is_passado   = data_str < hoje %}
 
               {% set cls = 'cal-cell' %}
-              {% if is_passado %}{% set cls = cls + ' passado' %}{% endif %}
-              {% if data_str == hoje %}{% set cls = cls + ' hoje' %}{% endif %}
+              {% if is_passado %}{% set cls = cls + ' passado' %}
+              {% elif data_str == hoje %}{% set cls = cls + ' hoje' %}{% endif %}
               {% if is_bloqueado %}{% set cls = cls + ' bloqueado' %}
-              {% elif is_ativo and not is_passado %}{% set cls = cls + ' disponivel' %}{% endif %}
+              {% elif is_ativo and not is_passado %}{% set cls = cls + ' disponivel' %}
+              {% else %}{% set cls = cls + ' indisponivel' %}{% endif %}
               {% if agts %}{% set cls = cls + ' com-agt' %}{% endif %}
 
-              <td class="{{ cls }}"
-                  onclick="{% if not is_passado %}abrirDia('{{ data_str }}', {{ is_bloqueado | lower }}){% endif %}"
-                  title="{{ data_str }}{% if is_bloqueado %} — BLOQUEADO{% endif %}{% if agts %} — {{ agts|length }} agendamento(s){% endif %}">
-                <span class="cal-cell-num">{{ dia }}</span>
+              <div class="{{ cls }}" id="cell-{{ data_str }}"
+                   {% if not is_passado %}onclick="selecionarDia('{{ data_str }}', {{ is_bloqueado | lower }})"{% endif %}
+                   title="{{ data_str }}{% if is_bloqueado %} — Bloqueado{% endif %}{% if agts %} — {{ agts|length }} agendamento(s){% endif %}">
+                <span class="cal-num">{{ dia }}</span>
                 {% if is_bloqueado %}
                   <span class="cal-lock">🔒</span>
+                {% elif agts %}
+                  <div class="cal-dots">
+                    {% for a in agts[:4] %}
+                    <span class="cal-dot {{ a.status }}"></span>
+                    {% endfor %}
+                    {% if agts|length > 4 %}
+                    <span class="cal-dot" style="background:var(--ag-muted)"></span>
+                    {% endif %}
+                  </div>
                 {% endif %}
-                {% if agts %}
-                <div class="cal-dots">
-                  {% for a in agts[:4] %}
-                  <span class="cal-dot {{ a.status }}"></span>
-                  {% endfor %}
-                </div>
-                {% endif %}
-              </td>
+              </div>
             {% endif %}
-            {% endfor %}
-          </tr>
           {% endfor %}
-        </tbody>
-      </table>
+        {% endfor %}
+      </div>
 
       <!-- Legenda -->
-      <div class="d-flex gap-3 mt-3 flex-wrap" style="font-size:.70rem; color:#475569;">
-        <span><span style="background:#4ade80;width:9px;height:9px;border-radius:50%;display:inline-block;"></span> Disponível</span>
-        <span><span style="background:#f87171;width:9px;height:9px;border-radius:50%;display:inline-block;"></span> Bloqueado</span>
-        <span><span style="background:#fbbf24;width:9px;height:9px;border-radius:50%;display:inline-block;"></span> Pendente</span>
-        <span><span style="background:#4ade80;width:9px;height:9px;border-radius:50%;display:inline-block;"></span> Confirmado</span>
-        <span><span style="background:#ef4444;width:9px;height:9px;border-radius:50%;display:inline-block;"></span> Cancelado</span>
-        <span><span style="background:#94a3b8;width:9px;height:9px;border-radius:50%;display:inline-block;"></span> Realizado</span>
+      <div class="cal-legend">
+        <div class="cal-legend-item">
+          <div class="cal-legend-dot" style="background:var(--ag-green)"></div> Disponível
+        </div>
+        <div class="cal-legend-item">
+          <div class="cal-legend-dot" style="background:var(--ag-red)"></div> Bloqueado
+        </div>
+        <div class="cal-legend-item">
+          <div class="cal-legend-dot" style="background:var(--ag-yellow)"></div> Pendente
+        </div>
+        <div class="cal-legend-item">
+          <div class="cal-legend-dot" style="background:var(--ag-green)"></div> Confirmado
+        </div>
+        <div class="cal-legend-item">
+          <div class="cal-legend-dot" style="background:var(--ag-red)"></div> Cancelado
+        </div>
+        <div class="cal-legend-item">
+          <div class="cal-legend-dot" style="background:var(--ag-muted)"></div> Realizado
+        </div>
       </div>
     </div>
 
-    <!-- Lista de agendamentos do dia selecionado -->
-    <div class="ag-card" id="painel-dia" style="display:none;">
-      <div class="d-flex align-items-center justify-content-between mb-2">
-        <h6 id="painel-dia-titulo" class="mb-0"><i class="fas fa-list me-1"></i>Agendamentos</h6>
-        <div class="d-flex gap-2">
-          <button class="btn btn-success btn-sm" id="btn-novo-agt" onclick="abrirModalNovo()">
+    <!-- Painel do dia selecionado -->
+    <div class="painel-dia" id="painel-dia">
+      <div class="painel-dia-header">
+        <h6 class="painel-dia-titulo" id="painel-dia-titulo">
+          <i class="fas fa-list-ul me-2" style="color:var(--ag-primary)"></i>Agendamentos
+        </h6>
+        <div class="painel-actions">
+          <button class="btn btn-sm btn-success" onclick="abrirModalNovo()">
             <i class="fas fa-plus me-1"></i>Novo
           </button>
-          <button class="btn btn-danger btn-sm" id="btn-bloquear-dia" onclick="bloquearDiaSelecionado()">
-            <i class="fas fa-ban me-1"></i>Bloquear dia
+          <button class="btn btn-sm" id="btn-toggle-bloqueio" onclick="toggleBloqueio()">
+            <i class="fas fa-ban me-1"></i>Bloquear
           </button>
         </div>
       </div>
-      <div id="lista-agendamentos-dia"></div>
+
+      <!-- Stats do dia -->
+      <div class="ag-stats" id="dia-stats"></div>
+
+      <!-- Tabela de agendamentos -->
+      <div id="lista-agendamentos-dia">
+        <div class="agt-empty">
+          <i class="fas fa-calendar-xmark" style="font-size:1.5rem;opacity:.3;display:block;margin-bottom:8px"></i>
+          Selecione um dia no calendário
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ── Modal: Agendamento do dia ─────────────────────── -->
-<div class="ag-modal-overlay" id="modal-novo">
+<!-- ── Modal: Novo Agendamento ─────────────────────────── -->
+<div class="ag-overlay" id="modal-novo">
   <div class="ag-modal">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <h5><i class="fas fa-calendar-plus me-2 text-primary"></i>Novo Agendamento</h5>
-      <button onclick="fecharModal()" style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;">✕</button>
+    <div class="ag-modal-title">
+      <span><i class="fas fa-calendar-plus me-2" style="color:var(--ag-primary)"></i>Novo Agendamento</span>
+      <button class="ag-modal-close" onclick="fecharModal()">✕</button>
     </div>
-    <label>Data</label>
-    <input type="text" id="modal-data" readonly style="background:#12151e;border:1px solid #2d3748;color:#94a3b8;">
-    <label>Horário</label>
-    <select id="modal-hora">
-      <option value="">Selecione...</option>
-    </select>
-    <label>Nome do cliente</label>
-    <input type="text" id="modal-nome" placeholder="Nome completo">
-    <label>Telefone</label>
-    <input type="text" id="modal-tel" placeholder="(11) 99999-9999">
-    <label>Benefício</label>
-    <input type="text" id="modal-ben" placeholder="ex: Salário Maternidade">
-    <label>Observações</label>
-    <textarea id="modal-obs" rows="2" placeholder="Observações opcionais"></textarea>
-    <div class="d-flex gap-2">
-      <button class="btn btn-secondary btn-sm flex-fill" onclick="fecharModal()">Cancelar</button>
-      <button class="btn btn-primary btn-sm flex-fill" onclick="confirmarAgendamento()">
+    <div class="ag-modal-grid">
+      <div class="ag-modal-full">
+        <label class="ag-label">Data</label>
+        <input type="text" id="modal-data" class="ag-input" readonly
+               style="color:var(--ag-muted);cursor:default">
+      </div>
+      <div class="ag-modal-full">
+        <label class="ag-label">Horário *</label>
+        <select id="modal-hora" class="ag-input">
+          <option value="">Selecione...</option>
+        </select>
+      </div>
+      <div>
+        <label class="ag-label">Nome do cliente *</label>
+        <input type="text" id="modal-nome" class="ag-input" placeholder="Nome completo">
+      </div>
+      <div>
+        <label class="ag-label">Telefone</label>
+        <input type="text" id="modal-tel" class="ag-input" placeholder="(11) 99999-9999">
+      </div>
+      <div class="ag-modal-full">
+        <label class="ag-label">Benefício</label>
+        <input type="text" id="modal-ben" class="ag-input" placeholder="ex: Aposentadoria">
+      </div>
+      <div class="ag-modal-full">
+        <label class="ag-label">Observações</label>
+        <textarea id="modal-obs" class="ag-input" rows="2"
+                  placeholder="Observações opcionais" style="resize:vertical"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="btn btn-secondary flex-fill" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-primary flex-fill" onclick="confirmarAgendamento()">
         <i class="fas fa-check me-1"></i>Confirmar
       </button>
     </div>
@@ -341,86 +641,179 @@
 
 <!-- Toast -->
 <div id="ag-toast">
-  <i id="ag-toast-icon" class="fas fa-check-circle" style="color:#4ade80"></i>
+  <i id="ag-toast-icon" class="fas fa-check-circle" style="color:var(--ag-green)"></i>
   <span id="ag-toast-msg"></span>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-let selectedDate = null;
+let selectedDate     = null;
 let selectedBloqueado = false;
 
-// ── Abrir painel do dia ──────────────────────────────
-function abrirDia(data, bloqueado) {
-  selectedDate = data;
+// ── Tabs sidebar ─────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.ag-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.ag-tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── Selecionar dia no calendário ─────────────────────
+function selecionarDia(data, bloqueado) {
+  // Desmarca seleção anterior
+  if (selectedDate) {
+    const prev = document.getElementById('cell-' + selectedDate);
+    if (prev) prev.classList.remove('selected');
+  }
+  selectedDate      = data;
   selectedBloqueado = bloqueado;
-  const titulo = document.getElementById('painel-dia-titulo');
-  const btnBloquear = document.getElementById('btn-bloquear-dia');
-  titulo.innerHTML = '<i class="fas fa-list me-1"></i>Agendamentos — ' + formatarData(data);
-  btnBloquear.textContent = bloqueado ? '🔓 Desbloquear' : '🔒 Bloquear dia';
-  btnBloquear.className = bloqueado ? 'btn btn-success btn-sm' : 'btn btn-danger btn-sm';
+
+  const cell = document.getElementById('cell-' + data);
+  if (cell) cell.classList.add('selected');
+
+  const [a, m, d] = data.split('-');
+  const dataBR = `${d}/${m}/${a}`;
+
   document.getElementById('painel-dia').style.display = '';
+  document.getElementById('painel-dia-titulo').innerHTML =
+    `<i class="fas fa-list-ul me-2" style="color:var(--ag-primary)"></i>${dataBR}`;
+
+  const btnBlq = document.getElementById('btn-toggle-bloqueio');
+  if (bloqueado) {
+    btnBlq.className = 'btn btn-sm btn-success';
+    btnBlq.innerHTML = '<i class="fas fa-unlock me-1"></i>Desbloquear';
+  } else {
+    btnBlq.className = 'btn btn-sm btn-outline-danger';
+    btnBlq.innerHTML = '<i class="fas fa-ban me-1"></i>Bloquear';
+  }
+
   carregarAgendamentosDia(data);
 }
 
+// ── Carregar agendamentos do dia via API ─────────────
 function carregarAgendamentosDia(data) {
-  fetch('/admin/agenda/disponibilidade/' + data)
+  const container = document.getElementById('lista-agendamentos-dia');
+  const stats     = document.getElementById('dia-stats');
+  container.innerHTML = '<div class="agt-empty"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>';
+  stats.innerHTML = '';
+
+  fetch('/admin/agenda/agendamentos-dia/' + data)
     .then(r => r.json())
-    .then(d => {
-      // já carregamos pelo template; usa fetch só para slots
+    .then(resp => {
+      const agts = resp.agendamentos || [];
+
+      // Stats
+      const pendentes   = agts.filter(a => a.status === 'pendente').length;
+      const confirmados = agts.filter(a => a.status === 'confirmado').length;
+      const realizados  = agts.filter(a => a.status === 'realizado').length;
+      stats.innerHTML = `
+        <div class="ag-stat"><div class="ag-stat-num">${agts.length}</div><div class="ag-stat-lbl">Total</div></div>
+        <div class="ag-stat accent-yellow"><div class="ag-stat-num">${pendentes}</div><div class="ag-stat-lbl">Pendentes</div></div>
+        <div class="ag-stat accent-green"><div class="ag-stat-num">${confirmados}</div><div class="ag-stat-lbl">Confirmados</div></div>
+        <div class="ag-stat"><div class="ag-stat-num">${realizados}</div><div class="ag-stat-lbl">Realizados</div></div>
+      `;
+
+      if (!agts.length) {
+        container.innerHTML = `
+          <div class="agt-empty">
+            <i class="fas fa-calendar-xmark" style="font-size:1.5rem;opacity:.3;display:block;margin-bottom:8px"></i>
+            Nenhum agendamento para este dia.<br>
+            <small style="color:var(--ag-muted)">Clique em "Novo" para adicionar.</small>
+          </div>`;
+        return;
+      }
+
+      const rows = agts.map(a => `
+        <tr class="agt-row">
+          <td class="agt-hora">${a.hora}</td>
+          <td>
+            <div class="agt-nome">${a.nome_display}</div>
+            <div class="agt-sub">${a.telefone || ''}</div>
+          </td>
+          <td><div style="font-size:.78rem">${a.beneficio || '—'}</div></td>
+          <td>
+            <select class="status-select" onchange="atualizarStatus(${a.id}, this.value)">
+              <option value="pendente"   ${a.status==='pendente'   ?'selected':''}>⏳ Pendente</option>
+              <option value="confirmado" ${a.status==='confirmado' ?'selected':''}>✅ Confirmado</option>
+              <option value="realizado"  ${a.status==='realizado'  ?'selected':''}>🏁 Realizado</option>
+              <option value="cancelado"  ${a.status==='cancelado'  ?'selected':''}>❌ Cancelado</option>
+            </select>
+          </td>
+        </tr>
+      `).join('');
+
+      container.innerHTML = `
+        <table class="agt-table">
+          <thead><tr>
+            <th>Hora</th><th>Cliente</th><th>Benefício</th><th>Status</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    })
+    .catch(() => {
+      container.innerHTML = '<div class="agt-empty" style="color:var(--ag-red)">Erro ao carregar agendamentos.</div>';
     });
-
-  // Busca agendamentos via endpoint com filtro de data
-  fetch('/admin/agenda/agendar?data=' + data) // workaround – carregamos do template
-    .catch(() => {});
-
-  // Renderiza agendamentos do mês já carregados (via atributos do DOM)
-  const cells = document.querySelectorAll('.cal-cell[title^="' + data + '"]');
-  const lista = document.getElementById('lista-agendamentos-dia');
-  // Reconstruiremos via API real na próxima versão; por ora, recarrega a página ao criar
-  lista.innerHTML = '<span style="color:#475569;font-size:.78rem">Clique em "Novo" para adicionar. A lista atualiza após salvar.</span>';
 }
 
-// ── Bloquear/desbloquear dia selecionado ─────────────
-function bloquearDiaSelecionado() {
+// ── Atualizar status de agendamento ─────────────────
+function atualizarStatus(id, status) {
+  fetch('/admin/agenda/agendamentos/' + id, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({status})
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.status === 'success') showToast('Status atualizado!');
+    else showToast('Erro ao atualizar.', 'error');
+  });
+}
+
+// ── Toggle bloqueio do dia ────────────────────────── 
+function toggleBloqueio() {
   if (!selectedDate) return;
   if (selectedBloqueado) {
     fetch('/admin/agenda/bloquear/' + selectedDate, { method: 'DELETE' })
-      .then(r => r.json()).then(() => { showToast('Data desbloqueada!'); setTimeout(() => location.reload(), 800); });
+      .then(r => r.json())
+      .then(() => { showToast('Data desbloqueada!'); setTimeout(() => location.reload(), 800); });
   } else {
     const motivo = prompt('Motivo do bloqueio (opcional):') || '';
     fetch('/admin/agenda/bloquear', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({data: selectedDate, motivo})
-    }).then(r => r.json()).then(() => { showToast('Data bloqueada!'); setTimeout(() => location.reload(), 800); });
+    }).then(r => r.json())
+      .then(() => { showToast('Data bloqueada!'); setTimeout(() => location.reload(), 800); });
   }
 }
 
 // ── Modal novo agendamento ───────────────────────────
 function abrirModalNovo() {
-  if (!selectedDate) { showToast('Selecione um dia no calendário primeiro.', 'error'); return; }
-  document.getElementById('modal-data').value = selectedDate + ' (' + formatarData(selectedDate) + ')';
+  if (!selectedDate) {
+    showToast('Selecione um dia no calendário primeiro.', 'error');
+    return;
+  }
+  const [a, m, d] = selectedDate.split('-');
+  document.getElementById('modal-data').value = `${d}/${m}/${a}`;
   document.getElementById('modal-nome').value = '';
-  document.getElementById('modal-tel').value = '';
-  document.getElementById('modal-ben').value = '';
-  document.getElementById('modal-obs').value = '';
-  // Carrega horários disponíveis
+  document.getElementById('modal-tel').value  = '';
+  document.getElementById('modal-ben').value  = '';
+  document.getElementById('modal-obs').value  = '';
+
   fetch('/admin/agenda/disponibilidade/' + selectedDate)
     .then(r => r.json())
     .then(d => {
       const sel = document.getElementById('modal-hora');
-      sel.innerHTML = '<option value="">Selecione...</option>';
+      sel.innerHTML = '<option value="">Selecione o horário...</option>';
       (d.horarios || []).forEach(h => {
-        const opt = document.createElement('option');
-        opt.value = h; opt.textContent = h;
-        sel.appendChild(opt);
+        sel.innerHTML += `<option value="${h}">${h}</option>`;
       });
       if (!(d.horarios || []).length) {
         sel.innerHTML = '<option value="">Sem horários disponíveis</option>';
       }
     });
+
   document.getElementById('modal-novo').classList.add('show');
 }
 
@@ -430,26 +823,29 @@ function fecharModal() {
 
 function confirmarAgendamento() {
   const hora = document.getElementById('modal-hora').value;
+  const nome = document.getElementById('modal-nome').value.trim();
   if (!hora) { showToast('Selecione um horário.', 'error'); return; }
-  const body = {
-    session_id: 0,
-    data: selectedDate,
-    hora,
-    nome_cliente: document.getElementById('modal-nome').value,
-    telefone: document.getElementById('modal-tel').value,
-    beneficio: document.getElementById('modal-ben').value,
-  };
+  if (!nome) { showToast('Informe o nome do cliente.', 'error'); return; }
+
   fetch('/admin/agenda/agendar', {
     method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify(body)
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      session_id:   0,
+      data:         selectedDate,
+      hora,
+      nome_cliente: nome,
+      telefone:     document.getElementById('modal-tel').value,
+      beneficio:    document.getElementById('modal-ben').value,
+    })
   })
   .then(r => r.json())
   .then(d => {
     if (d.success) {
-      showToast('Agendamento criado com sucesso!');
+      showToast('Agendamento criado!');
       fecharModal();
-      setTimeout(() => location.reload(), 800);
+      carregarAgendamentosDia(selectedDate);
+      setTimeout(() => location.reload(), 1200);
     } else {
       showToast(d.message || 'Erro ao agendar.', 'error');
     }
@@ -462,18 +858,15 @@ function salvarConfig() {
   for (let d = 0; d <= 6; d++) {
     const chk = document.querySelector(`input[name="ativo_${d}"]`);
     if (!chk) continue;
-    const horariosStr = document.getElementById('horarios_' + d).value || '';
-    const horarios = horariosStr.split(',').map(h => h.trim()).filter(h => /^\d{2}:\d{2}$/.test(h));
+    const str = document.getElementById('horarios_' + d).value || '';
+    const horarios = str.split(',').map(h => h.trim()).filter(h => /^\d{2}:\d{2}$/.test(h));
     dias.push({
-      dia_semana: d,
-      ativo: chk.checked,
-      horarios,
+      dia_semana: d, ativo: chk.checked, horarios,
       max_por_dia: parseInt(document.getElementById('max_' + d).value) || 5
     });
   }
   fetch('/admin/agenda/config', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
+    method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({dias})
   })
   .then(r => r.json())
@@ -485,14 +878,13 @@ function toggleDia(dia, ativo) {
   document.getElementById('max_' + dia).disabled = !ativo;
 }
 
-// ── Bloquear data pelo painel lateral ───────────────
+// ── Bloquear / desbloquear pelo painel lateral ───────
 function bloquearData() {
-  const data = document.getElementById('inp-bloquear-data').value;
+  const data   = document.getElementById('inp-bloquear-data').value;
   const motivo = document.getElementById('inp-bloquear-motivo').value;
   if (!data) { showToast('Informe a data.', 'error'); return; }
   fetch('/admin/agenda/bloquear', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
+    method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({data, motivo})
   }).then(r => r.json()).then(d => {
     showToast(d.status === 'success' ? 'Data bloqueada!' : 'Erro.', d.status);
@@ -500,56 +892,55 @@ function bloquearData() {
   });
 }
 
-// ── Próximas datas disponíveis ───────────────────────
+function desbloquearData() {
+  const data = document.getElementById('inp-desbloquear-data').value;
+  if (!data) { showToast('Informe a data.', 'error'); return; }
+  fetch('/admin/agenda/bloquear/' + data, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(() => { showToast('Data desbloqueada!'); setTimeout(() => location.reload(), 800); });
+}
+
+// ── Próximas datas ───────────────────────────────────
 function carregarProximas() {
-  fetch('/admin/agenda/proximas?qtd=4')
+  fetch('/admin/agenda/proximas?qtd=5')
     .then(r => r.json())
     .then(d => {
       const el = document.getElementById('proximas-datas');
       if (!(d.datas || []).length) {
-        el.innerHTML = '<span style="color:#475569;font-size:.78rem">Nenhuma data disponível configurada.</span>';
+        el.innerHTML = '<span style="color:var(--ag-muted);font-size:.78rem">Nenhuma disponível configurada.</span>';
         return;
       }
       el.innerHTML = d.datas.map(dt => `
-        <div style="padding:6px 0; border-bottom:1px solid #2d3748; font-size:.78rem; color:#e2e8f0;">
-          <strong>${dt.dia_semana_abrev} ${dt.data_br}</strong>
-          <span style="color:#94a3b8;"> — ${dt.horarios.length} horário(s)</span><br>
-          <span style="color:#60a5fa;">${dt.horarios.join('  •  ')}</span>
-        </div>
-      `).join('');
+        <div class="proxima-item" onclick="selecionarDia('${dt.data}', false)">
+          <div class="proxima-date">${dt.dia_semana_abrev} ${dt.data_br}</div>
+          <div class="proxima-slots">${dt.horarios.join('  ·  ')}</div>
+          <div class="proxima-count">${dt.horarios.length} horário(s)</div>
+        </div>`).join('');
     });
 }
 
-// ── Utilitários ──────────────────────────────────────
-function formatarData(data) {
-  const [a, m, d] = data.split('-');
-  return `${d}/${m}/${a}`;
-}
-
-function showToast(msg, type = 'success') {
-  const toast = document.getElementById('ag-toast');
-  document.getElementById('ag-toast-icon').className =
-    type === 'success' ? 'fas fa-check-circle' : 'fas fa-circle-exclamation';
-  document.getElementById('ag-toast-icon').style.color =
-    type === 'success' ? '#4ade80' : '#f87171';
-  document.getElementById('ag-toast-msg').textContent = msg;
-  toast.style.display = 'flex';
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => { toast.style.display = 'none'; }, 3000);
-}
-
-// ── Copiar link de agendamento ───────────────────────
+// ── Copiar link ──────────────────────────────────────
 function copiarLink() {
-  const input = document.getElementById('booking-link-input');
-  navigator.clipboard.writeText(input.value).then(() => {
+  const inp = document.getElementById('booking-link-input');
+  navigator.clipboard.writeText(inp.value).then(() => {
     const msg = document.getElementById('link-copiado');
     msg.style.display = 'block';
     clearTimeout(msg._t);
     msg._t = setTimeout(() => { msg.style.display = 'none'; }, 2500);
-  }).catch(() => {
-    input.select();
-    document.execCommand('copy');
-  });
+  }).catch(() => { inp.select(); document.execCommand('copy'); });
+}
+
+// ── Toast ────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const toast = document.getElementById('ag-toast');
+  const icon  = document.getElementById('ag-toast-icon');
+  icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-circle-exclamation';
+  icon.style.color = type === 'success' ? 'var(--ag-green)' : 'var(--ag-red)';
+  toast.style.borderLeftColor = type === 'success' ? 'var(--ag-green)' : 'var(--ag-red)';
+  document.getElementById('ag-toast-msg').textContent = msg;
+  toast.style.display = 'flex';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { toast.style.display = 'none'; }, 3000);
 }
 
 // Init

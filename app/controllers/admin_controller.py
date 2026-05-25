@@ -1504,6 +1504,28 @@ def agenda_criar():
     return jsonify(result), code
 
 
+@admin_bp.route('/agenda/agendamentos-dia/<data_str>')
+@login_required
+def agenda_agendamentos_dia(data_str):
+    """Retorna JSON com agendamentos de uma data específica."""
+    from app.services.agenda_service import get_agendamentos
+    agts = get_agendamentos(data_str=data_str)
+    result = []
+    for a in agts:
+        result.append({
+            'id':           a.get('id'),
+            'hora':         str(a.get('hora', ''))[:5],
+            'nome_display': a.get('nome_display', ''),
+            'telefone':     a.get('telefone', ''),
+            'beneficio':    a.get('beneficio', ''),
+            'status':       a.get('status', 'pendente'),
+            'status_label': a.get('status_label', ''),
+            'observacoes':  a.get('observacoes', ''),
+            'data_br':      a.get('data_br', ''),
+        })
+    return jsonify({'status': 'success', 'agendamentos': result})
+
+
 @admin_bp.route('/agenda/agendamentos/<int:agt_id>', methods=['PATCH'])
 @login_required
 def agenda_atualizar(agt_id):
