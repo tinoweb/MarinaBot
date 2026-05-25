@@ -1504,6 +1504,33 @@ def agenda_criar():
     return jsonify(result), code
 
 
+@admin_bp.route('/agenda/todos')
+@login_required
+def agenda_todos():
+    """Retorna todos os agendamentos (opcionalmente filtrado por mes/ano)."""
+    from app.services.agenda_service import get_agendamentos
+    from datetime import date as _date
+    mes  = request.args.get('mes',  type=int)
+    ano  = request.args.get('ano',  type=int)
+    agts = get_agendamentos(mes=mes, ano=ano)
+    result = []
+    for a in agts:
+        result.append({
+            'id':           a.get('id'),
+            'data_br':      a.get('data_br', ''),
+            'data':         str(a.get('data', '')),
+            'hora':         str(a.get('hora', ''))[:5],
+            'dia_semana':   a.get('dia_semana', ''),
+            'nome_display': a.get('nome_display', ''),
+            'telefone':     a.get('telefone', ''),
+            'beneficio':    a.get('beneficio', ''),
+            'status':       a.get('status', 'pendente'),
+            'status_label': a.get('status_label', ''),
+            'observacoes':  a.get('observacoes', '') or '',
+        })
+    return jsonify({'status': 'success', 'agendamentos': result, 'total': len(result)})
+
+
 @admin_bp.route('/agenda/agendamentos-dia/<data_str>')
 @login_required
 def agenda_agendamentos_dia(data_str):

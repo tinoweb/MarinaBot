@@ -174,16 +174,16 @@
 }
 .cal-nav-btn:hover { background: var(--ag-hover); color: var(--ag-text); }
 
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .cal-dow {
-  text-align: center; font-size: .62rem; font-weight: 700; color: var(--ag-muted);
-  text-transform: uppercase; letter-spacing: .04em; padding: 4px 0 8px;
+  text-align: center; font-size: .6rem; font-weight: 700; color: var(--ag-muted);
+  text-transform: uppercase; letter-spacing: .04em; padding: 3px 0 6px;
 }
 .cal-cell {
-  aspect-ratio: 1; border-radius: 10px; display: flex; flex-direction: column;
+  height: 46px; border-radius: 8px; display: flex; flex-direction: column;
   align-items: center; justify-content: center; cursor: pointer;
   transition: all .15s; position: relative; overflow: hidden;
-  font-size: .8rem; font-weight: 700;
+  font-size: .78rem; font-weight: 700;
 }
 .cal-cell.empty { cursor: default; }
 .cal-cell.passado { color: #2d3748; cursor: default; }
@@ -205,13 +205,13 @@
   background: var(--ag-primary) !important; color: #fff !important;
   box-shadow: 0 4px 14px rgba(79,142,247,.4);
 }
-.cal-num { font-size: .8rem; font-weight: 800; line-height: 1; }
+.cal-num { font-size: .78rem; font-weight: 800; line-height: 1; }
 .cal-dots {
   display: flex; gap: 2px; justify-content: center;
-  flex-wrap: wrap; margin-top: 2px;
+  flex-wrap: nowrap; margin-top: 2px;
 }
 .cal-dot {
-  width: 5px; height: 5px; border-radius: 50%; background: var(--ag-muted);
+  width: 4px; height: 4px; border-radius: 50%; background: var(--ag-muted);
 }
 .cal-dot.pendente   { background: var(--ag-yellow); }
 .cal-dot.confirmado { background: var(--ag-green); }
@@ -593,6 +593,44 @@
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════
+     SEÇÃO: Todos os Agendamentos (full-width)
+═══════════════════════════════════════════════════════ -->
+<div class="ag-card" style="margin-top:20px;" id="secao-todos">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+    <div class="ag-card-title" style="margin-bottom:0;">
+      <i class="fas fa-table-list"></i> Todos os Agendamentos
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <!-- Filtro de status -->
+      <select id="filtro-status" class="status-select" onchange="filtrarTodos()" style="font-size:.75rem;">
+        <option value="">Todos os status</option>
+        <option value="pendente">⏳ Pendente</option>
+        <option value="confirmado">✅ Confirmado</option>
+        <option value="realizado">🏁 Realizado</option>
+        <option value="cancelado">❌ Cancelado</option>
+      </select>
+      <!-- Busca -->
+      <input type="text" id="busca-todos" class="ag-input"
+             style="width:200px;margin:0;padding:6px 10px;font-size:.75rem;"
+             placeholder="🔍 Buscar cliente..." oninput="filtrarTodos()">
+      <button class="btn btn-sm btn-outline-secondary" onclick="carregarTodos()">
+        <i class="fas fa-sync-alt"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats globais -->
+  <div class="ag-stats" id="todos-stats" style="margin-bottom:14px;"></div>
+
+  <!-- Tabela -->
+  <div id="tabela-todos">
+    <div class="agt-empty">
+      <i class="fas fa-spinner fa-spin"></i> Carregando agendamentos...
+    </div>
+  </div>
+</div>
+
 <!-- ── Modal: Novo Agendamento ─────────────────────────── -->
 <div class="ag-overlay" id="modal-novo">
   <div class="ag-modal">
@@ -943,7 +981,115 @@ function showToast(msg, type = 'success') {
   toast._t = setTimeout(() => { toast.style.display = 'none'; }, 3000);
 }
 
+// ── Todos os agendamentos (tabela completa) ──────────
+let _todosCache = [];
+
+function carregarTodos() {
+  const container = document.getElementById('tabela-todos');
+  const stats     = document.getElementById('todos-stats');
+  container.innerHTML = '<div class="agt-empty"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>';
+
+  fetch('/admin/agenda/todos')
+    .then(r => r.json())
+    .then(resp => {
+      _todosCache = resp.agendamentos || [];
+      renderTodos(_todosCache);
+    })
+    .catch(() => {
+      container.innerHTML = '<div class="agt-empty" style="color:var(--ag-red)">Erro ao carregar.</div>';
+    });
+}
+
+function filtrarTodos() {
+  const statusFiltro = document.getElementById('filtro-status').value;
+  const busca        = document.getElementById('busca-todos').value.toLowerCase();
+  let lista = _todosCache;
+  if (statusFiltro) lista = lista.filter(a => a.status === statusFiltro);
+  if (busca) lista = lista.filter(a =>
+    (a.nome_display || '').toLowerCase().includes(busca) ||
+    (a.telefone || '').includes(busca) ||
+    (a.beneficio || '').toLowerCase().includes(busca)
+  );
+  renderTodos(lista);
+}
+
+function renderTodos(lista) {
+  const container = document.getElementById('tabela-todos');
+  const stats     = document.getElementById('todos-stats');
+  const all       = _todosCache;
+
+  const totais = {
+    total:      all.length,
+    pendentes:  all.filter(a => a.status === 'pendente').length,
+    confirmados:all.filter(a => a.status === 'confirmado').length,
+    realizados: all.filter(a => a.status === 'realizado').length,
+    cancelados: all.filter(a => a.status === 'cancelado').length,
+  };
+
+  stats.innerHTML = `
+    <div class="ag-stat"><div class="ag-stat-num">${totais.total}</div><div class="ag-stat-lbl">Total</div></div>
+    <div class="ag-stat accent-yellow"><div class="ag-stat-num">${totais.pendentes}</div><div class="ag-stat-lbl">Pendentes</div></div>
+    <div class="ag-stat accent-green"><div class="ag-stat-num">${totais.confirmados}</div><div class="ag-stat-lbl">Confirmados</div></div>
+    <div class="ag-stat"><div class="ag-stat-num">${totais.realizados}</div><div class="ag-stat-lbl">Realizados</div></div>
+    <div class="ag-stat"><div class="ag-stat-num">${totais.cancelados}</div><div class="ag-stat-lbl">Cancelados</div></div>
+  `;
+
+  if (!lista.length) {
+    container.innerHTML = `
+      <div class="agt-empty">
+        <i class="fas fa-calendar-xmark" style="font-size:1.5rem;opacity:.3;display:block;margin-bottom:8px"></i>
+        Nenhum agendamento encontrado.
+      </div>`;
+    return;
+  }
+
+  const rows = lista.map(a => `
+    <tr class="agt-row">
+      <td>
+        <div style="font-size:.8rem;font-weight:700;color:var(--ag-text)">${a.data_br}</div>
+        <div style="font-size:.68rem;color:var(--ag-muted)">${a.dia_semana || ''}</div>
+      </td>
+      <td class="agt-hora">${a.hora}</td>
+      <td>
+        <div class="agt-nome">${a.nome_display}</div>
+        <div class="agt-sub">${a.telefone || ''}</div>
+      </td>
+      <td>
+        <div style="font-size:.78rem">${a.beneficio || '—'}</div>
+      </td>
+      <td>
+        <select class="status-select" onchange="atualizarStatus(${a.id}, this.value)">
+          <option value="pendente"   ${a.status==='pendente'   ?'selected':''}>⏳ Pendente</option>
+          <option value="confirmado" ${a.status==='confirmado' ?'selected':''}>✅ Confirmado</option>
+          <option value="realizado"  ${a.status==='realizado'  ?'selected':''}>🏁 Realizado</option>
+          <option value="cancelado"  ${a.status==='cancelado'  ?'selected':''}>❌ Cancelado</option>
+        </select>
+      </td>
+      <td style="font-size:.7rem;color:var(--ag-muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        ${a.observacoes || ''}
+      </td>
+    </tr>
+  `).join('');
+
+  container.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table class="agt-table" style="min-width:680px;">
+        <thead>
+          <tr>
+            <th>Data</th><th>Hora</th><th>Cliente</th>
+            <th>Benefício</th><th>Status</th><th>Obs.</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="font-size:.7rem;color:var(--ag-muted);margin-top:10px;text-align:right;">
+      ${lista.length} registro(s) exibido(s)
+    </div>`;
+}
+
 // Init
 carregarProximas();
+carregarTodos();
 </script>
 {% endblock %}
