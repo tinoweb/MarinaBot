@@ -55,6 +55,8 @@ services:
       - WPP_SECRET_KEY=${WPP_SECRET_KEY:-marina_bot_secret}
       - APP_URL=${APP_URL:-http://app:5000}
       - BASE_URL=${BASE_URL:-http://localhost:5000}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-senha123}
     depends_on:
       - db
       - wppconnect
