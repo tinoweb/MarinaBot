@@ -220,18 +220,69 @@ def get_proximas_datas_disponiveis(quantidade: int = 5, dias_antecedencia: int =
 
 # ── Agendamentos ─────────────────────────────────────────────────────────────
 
+# ── Helper functions para WhatsApp e Agendamentos ─────────────────────────────
+
+def _normalize_phone_number(phone_str: str) -> str:
+    if not phone_str:
+        return ""
+    if '@c.us' in phone_str or '@lid' in phone_str:
+        return phone_str
+    import re
+    digits = re.sub(r'\D', '', phone_str)
+    if 10 <= len(digits) <= 15:
+        if len(digits) == 10:  # Apenas número sem DDD
+            digits = '55' + digits
+        elif len(digits) == 11 and digits.startswith('0'):
+            digits = digits[1:]
+        if len(digits) in (10, 11) and not digits.startswith('55'):
+            digits = '55' + digits
+        return f"{digits}@c.us"
+    return phone_str
+
+
+def _get_or_create_session(user_id: str) -> int:
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT id FROM chat_sessions WHERE user_id=%s", (user_id,))
+    row = cursor.fetchone()
+    if row:
+        sess_id = row['id']
+    else:
+        cursor.execute("""
+            INSERT INTO chat_sessions (user_id, created_at, updated_at, status, unread_count, ia_pausada, etapa_atual, kanban_stage)
+            VALUES (%s, NOW(), NOW(), 'active', 0, 0, 1, 'atendimento_inicial')
+        """, (user_id,))
+        conn.commit()
+        sess_id = cursor.lastrowid
+    cursor.close()
+    conn.close()
+    return sess_id
+
+
+# ── Agendamentos ─────────────────────────────────────────────────────────────
+
 def criar_agendamento(session_id: int, data_str: str, hora: str,
                       beneficio: str = '', nome_cliente: str = '',
                       telefone: str = '') -> dict:
     """
-    Cria um novo agendamento se o horário estiver disponível.
-    Retorna dict com 'success', 'id' e 'message'.
+    Cria um novo agendamento se o horário estiver disponível, envia mensagem de confirmação
+    via WhatsApp e agenda lembretes automáticos.
     """
+    import os
+    from datetime import datetime, timedelta
+    from app.services.whatsapp_service import get_wpp_service
+    from app.models.ai_model import _get_ai_setting
+
     disponiveis = get_horarios_disponiveis(data_str)
     if not disponiveis:
         return {'success': False, 'message': 'Nenhum horário disponível nesta data.'}
     if hora not in disponiveis:
         return {'success': False, 'message': f'Horário {hora} não disponível. Disponíveis: {", ".join(disponiveis)}'}
+
+    # Normalização do telefone e resolução da sessão
+    telefone_norm = _normalize_phone_number(telefone)
+    if (not session_id or session_id == 0) and telefone_norm:
+        session_id = _get_or_create_session(telefone_norm)
 
     try:
         conn = get_db_connection()
@@ -240,11 +291,118 @@ def criar_agendamento(session_id: int, data_str: str, hora: str,
             INSERT INTO agendamentos
                 (session_id, data, hora, beneficio, nome_cliente, telefone, status)
             VALUES (%s, %s, %s, %s, %s, %s, 'pendente')
-        """, (session_id, data_str, hora, beneficio, nome_cliente, telefone))
+        """, (session_id, data_str, hora, beneficio, nome_cliente, telefone_norm or telefone))
         conn.commit()
         new_id = cursor.lastrowid
         cursor.close()
         conn.close()
+
+        # Envio de notificações e criação de lembretes
+        if telefone_norm:
+            wpp = get_wpp_service()
+            session_name = os.getenv('WHATSAPP_SESSION', 'marina_bot_session')
+            
+            # Formatação de data
+            dt_obj = datetime.strptime(data_str, "%Y-%m-%d")
+            data_br = dt_obj.strftime("%d/%m/%Y")
+            
+            # 1. Mensagem de confirmação imediata para o cliente
+            msg_confirm = (
+                f"Olá, {nome_cliente}! Seu agendamento de consulta com a Dra. Marina Marques foi realizado com sucesso. 📅\n\n"
+                f"- *Assunto:* {beneficio or 'Consulta Geral'}\n"
+                f"- *Data:* {data_br}\n"
+                f"- *Horário:* {hora}\n\n"
+                f"Esperamos por você! Se precisar reagendar ou cancelar, por favor nos avise com antecedência por aqui. 😊"
+            )
+            try:
+                wpp.send_message(telefone_norm, msg_confirm, session_name=session_name)
+                print(f"[Agenda] Confirmação de agendamento enviada para {telefone_norm}")
+            except Exception as e_msg:
+                print(f"[Agenda] Erro ao enviar mensagem de confirmação: {e_msg}")
+
+            # 2. Agendamento de Lembretes do Cliente (24h e 2h antes)
+            try:
+                appointment_dt = datetime.strptime(f"{data_str} {hora}", "%Y-%m-%d %H:%M")
+                now = datetime.now()
+
+                # Lembrete 24 horas antes
+                reminder_24h_dt = appointment_dt - timedelta(hours=24)
+                if reminder_24h_dt > now:
+                    msg_24h = (
+                        f"Olá, {nome_cliente}! Passando para lembrar que você tem uma consulta com a Dra. Marina Marques amanhã. 📅\n\n"
+                        f"- *Horário:* {hora}\n\n"
+                        f"Até logo! Se tiver algum imprevisto, nos avise por aqui."
+                    )
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO scheduled_followups (session_id, scheduled_at, message, sent)
+                        VALUES (%s, %s, %s, 0)
+                    """, (session_id, reminder_24h_dt.strftime("%Y-%m-%d %H:%M:%S"), msg_24h))
+                    conn.commit()
+                    cursor.close()
+                    conn.close()
+
+                # Lembrete 2 horas antes
+                reminder_2h_dt = appointment_dt - timedelta(hours=2)
+                if reminder_2h_dt > now:
+                    msg_2h = (
+                        f"Olá, {nome_cliente}! Lembrando que sua consulta com a Dra. Marina Marques está agendada para hoje, às {hora}. 📅\n\n"
+                        f"Nos vemos em breve!"
+                    )
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO scheduled_followups (session_id, scheduled_at, message, sent)
+                        VALUES (%s, %s, %s, 0)
+                    """, (session_id, reminder_2h_dt.strftime("%Y-%m-%d %H:%M:%S"), msg_2h))
+                    conn.commit()
+                    cursor.close()
+                    conn.close()
+
+            except Exception as e_rem:
+                print(f"[Agenda] Erro ao agendar lembretes para o cliente: {e_rem}")
+
+            # 3. Notificações do Administrador
+            try:
+                admin_phone = _get_ai_setting('admin_phone', '')
+                if admin_phone:
+                    admin_phone_norm = _normalize_phone_number(admin_phone)
+                    if admin_phone_norm:
+                        # Mensagem imediata de novo agendamento para o admin
+                        msg_admin = (
+                            f"🔔 *[NOVO AGENDAMENTO]*\n"
+                            f"Um novo cliente agendou uma consulta pelo site.\n\n"
+                            f"- *Cliente:* {nome_cliente}\n"
+                            f"- *Telefone:* {telefone}\n"
+                            f"- *Data:* {data_br}\n"
+                            f"- *Horário:* {hora}\n"
+                            f"- *Assunto:* {beneficio or 'Consulta Geral'}"
+                        )
+                        wpp.send_message(admin_phone_norm, msg_admin, session_name=session_name)
+
+                        # Lembrete 2 horas antes para o admin (se ainda não passou)
+                        if 'reminder_2h_dt' in locals() and reminder_2h_dt > now:
+                            admin_session_id = _get_or_create_session('admin_notifications')
+                            msg_admin_reminder = (
+                                f"🔔 *[LEMBRETE DE CONSULTA]*\n"
+                                f"Você tem uma consulta agendada hoje, às {hora}.\n\n"
+                                f"- *Cliente:* {nome_cliente}\n"
+                                f"- *Assunto:* {beneficio or 'Consulta Geral'}\n"
+                                f"- *Telefone:* {telefone}"
+                            )
+                            conn = get_db_connection()
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                INSERT INTO scheduled_followups (session_id, scheduled_at, message, sent)
+                                VALUES (%s, %s, %s, 0)
+                            """, (admin_session_id, reminder_2h_dt.strftime("%Y-%m-%d %H:%M:%S"), msg_admin_reminder))
+                            conn.commit()
+                            cursor.close()
+                            conn.close()
+            except Exception as e_adm:
+                print(f"[Agenda] Erro ao enviar alertas para o admin: {e_adm}")
+
         return {'success': True, 'id': new_id, 'message': 'Agendamento criado com sucesso.'}
     except Exception as e:
         print(f"[Agenda] Erro ao criar agendamento: {e}")
@@ -272,6 +430,46 @@ def atualizar_status(agendamento_id: int, status: str, observacoes: str = None) 
         conn.commit()
         cursor.close()
         conn.close()
+
+        # Envia notificação via WhatsApp se o status foi confirmado ou cancelado
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM agendamentos WHERE id=%s", (agendamento_id,))
+            agt = cursor.fetchone()
+            cursor.close()
+            conn.close()
+
+            if agt and status in ('confirmado', 'cancelado'):
+                telefone = agt.get('telefone')
+                telefone_norm = _normalize_phone_number(telefone)
+                if telefone_norm:
+                    import os
+                    from app.services.whatsapp_service import get_wpp_service
+                    wpp = get_wpp_service()
+                    session_name = os.getenv('WHATSAPP_SESSION', 'marina_bot_session')
+                    
+                    data_br = agt['data'].strftime('%d/%m/%Y') if hasattr(agt['data'], 'strftime') else str(agt['data'])
+                    hora = str(agt['hora'])[:5]
+                    nome_cliente = agt.get('nome_cliente', 'Cliente')
+                    
+                    if status == 'confirmado':
+                        msg = (
+                            f"Olá, {nome_cliente}! Passando para avisar que sua consulta com a Dra. Marina Marques foi *confirmada*. 📅\n\n"
+                            f"- *Data:* {data_br}\n"
+                            f"- *Horário:* {hora}\n\n"
+                            f"Esperamos você!"
+                        )
+                    else: # cancelado
+                        msg = (
+                            f"Olá, {nome_cliente}! Informamos que a sua consulta com a Dra. Marina Marques agendada para {data_br} às {hora} foi *cancelada*. ❌\n\n"
+                            f"Se quiser realizar um novo agendamento, você pode usar nosso link ou solicitar um novo horário aqui pelo chat."
+                        )
+                    wpp.send_message(telefone_norm, msg, session_name=session_name)
+                    print(f"[Agenda] Notificação de status '{status}' enviada para {telefone_norm}")
+        except Exception as e_wpp:
+            print(f"[Agenda] Erro ao enviar notificação de alteração de status: {e_wpp}")
+
         return True
     except Exception as e:
         print(f"[Agenda] Erro ao atualizar status: {e}")

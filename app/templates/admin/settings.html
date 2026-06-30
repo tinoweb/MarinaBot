@@ -135,6 +135,13 @@
                         <div class="form-text">Exibido nas mensagens de follow-up e encaminhamento para a Dra. Marina.</div>
                     </div>
 
+                    <div class="mb-3">
+                        <label for="admin_phone" class="form-label">Telefone de Alerta do Admin (WhatsApp)</label>
+                        <input type="text" class="form-control" id="admin_phone" name="admin_phone"
+                               value="{{ admin_phone or '' }}" placeholder="Ex: 5519999999999">
+                        <div class="form-text">Recebe notificações imediatas e lembretes (2h antes) de agendamentos. Insira com DDI (Ex: 55...) e DDD.</div>
+                    </div>
+
                     <div class="mb-0">
                         <label class="form-label">Follow-up Automático</label>
                         <div class="d-flex align-items-center gap-3">

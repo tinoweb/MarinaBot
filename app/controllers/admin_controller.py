@@ -404,7 +404,8 @@ def settings():
         'instagram_handle': '@drainss',
         'followup_enabled': 'true',
         'whatsapp_number': '',
-        'session_name': 'marina_bot_session'
+        'session_name': 'marina_bot_session',
+        'admin_phone': ''
     }
 
     # Carrega configurações do banco
@@ -449,6 +450,7 @@ def settings():
                 'temperature',
                 'instagram_handle',
                 'followup_enabled',
+                'admin_phone',
             ]
 
             for key in settings_to_save:

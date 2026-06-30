@@ -167,10 +167,11 @@ def _send_followup(sess, wpp, session_name, now, one_hour_ago, twenty_four_hours
 
 
 def _send_scheduled_followups():
-    """Processa follow-ups agendados manualmente pelo admin."""
+    """Processa follow-ups agendados manualmente pelo admin e lembretes de agenda."""
     try:
         from app.config.database import get_db_connection
-        from app.services.whatsapp_service import WhatsappService
+        from app.services.whatsapp_service import get_wpp_service
+        from app.models.ai_model import _get_ai_setting
         import os as _os
 
         conn = get_db_connection()
@@ -189,14 +190,42 @@ def _send_scheduled_followups():
             return
 
         session_name = _os.getenv('WHATSAPP_SESSION', 'marina_bot_session')
-        wpp = WhatsappService()
+        wpp = get_wpp_service()
 
         for row in pending:
             try:
                 user_id = row['user_id']
                 msg = row['message']
                 is_lid = '@lid' in user_id
-                result = wpp.send_message(user_id, msg, session_name=session_name, is_lid=is_lid)
+                
+                # Roteamento especial para alertas de administrador
+                if user_id == 'admin_notifications':
+                    admin_phone = _get_ai_setting('admin_phone', '')
+                    if not admin_phone:
+                        # Se não houver telefone de admin configurado, marca como enviado para não travar
+                        conn2 = get_db_connection()
+                        cur2 = conn2.cursor()
+                        cur2.execute("UPDATE scheduled_followups SET sent = 1 WHERE id = %s", (row['id'],))
+                        conn2.commit()
+                        cur2.close()
+                        conn2.close()
+                        continue
+                    
+                    # Normaliza o telefone do admin
+                    admin_digits = "".join(filter(str.isdigit, admin_phone))
+                    if 10 <= len(admin_digits) <= 15:
+                        if len(admin_digits) == 10:
+                            admin_digits = '55' + admin_digits
+                        elif len(admin_digits) == 11 and admin_digits.startswith('0'):
+                            admin_digits = admin_digits[1:]
+                        if len(admin_digits) in (10, 11) and not admin_digits.startswith('55'):
+                            admin_digits = '55' + admin_digits
+                        user_id = f"{admin_digits}@c.us"
+                        is_lid = False
+                    else:
+                        user_id = admin_phone
+
+                result = wpp.send_message(user_id, msg, session_name=session_name)
                 if isinstance(result, dict) and result.get('status') == 'success':
                     conn2 = get_db_connection()
                     cur2 = conn2.cursor()
@@ -204,7 +233,7 @@ def _send_scheduled_followups():
                     conn2.commit()
                     cur2.close()
                     conn2.close()
-                    logger.info(f"[Scheduler] Follow-up agendado #{row['id']} enviado para {user_id}")
+                    logger.info(f"[Scheduler] Lembrete/Follow-up agendado #{row['id']} enviado para {user_id}")
             except Exception as ex:
                 logger.error(f"[Scheduler] Erro no follow-up agendado #{row['id']}: {ex}")
     except Exception as e:

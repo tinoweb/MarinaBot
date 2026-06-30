@@ -1,360 +1,361 @@
-{% extends "admin/base.html" %}
-{% block title %}Agenda – AtendBot{% endblock %}
+{% extends 'admin/base.html' %}
+
+{% block title %}Agenda de Consultas - AtendBot{% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── Variáveis ──────────────────────────────────────── */
+/* ── Variáveis & Design System ──────────────────────── */
 :root {
-  --ag-bg:      #0f1117;
-  --ag-surface: #161b27;
-  --ag-card:    #1c2235;
-  --ag-border:  #252f45;
-  --ag-hover:   #202840;
-  --ag-primary: #4f8ef7;
-  --ag-green:   #34d399;
-  --ag-red:     #f87171;
-  --ag-yellow:  #fbbf24;
-  --ag-muted:   #64748b;
-  --ag-text:    #e2e8f0;
+  --ag-bg:      #0b0f19;
+  --ag-surface: #111827;
+  --ag-card:    #1f2937;
+  --ag-border:  #374151;
+  --ag-hover:   #2d3748;
+  --ag-primary: #3b82f6;
+  --ag-primary-hover: #2563eb;
+  --ag-green:   #10b981;
+  --ag-red:     #ef4444;
+  --ag-yellow:  #f59e0b;
+  --ag-muted:   #9ca3af;
+  --ag-text:    #f3f4f6;
 }
 
-/* ── Layout principal ───────────────────────────────── */
-.ag-layout {
+/* Glassmorphism premium card */
+.premium-card {
+  background: rgba(31, 41, 55, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(75, 85, 99, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.25);
+  padding: 24px;
+  margin-bottom: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-card:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 12px 40px 0 rgba(59, 130, 246, 0.08);
+}
+
+.premium-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ag-text);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Top View tab switcher */
+.premium-tab-group {
+  background: rgba(17, 24, 39, 0.7);
+  border-radius: 12px;
+  padding: 6px;
+  border: 1px solid rgba(75, 85, 99, 0.3);
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 24px;
+}
+
+.premium-tab-group .btn-tab {
+  border: none;
+  background: transparent;
+  color: var(--ag-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.premium-tab-group .btn-tab.active {
+  background: var(--ag-primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Layout Grid */
+.agenda-grid {
   display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 18px;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 24px;
   align-items: start;
 }
-@media(max-width:1024px){ .ag-layout { grid-template-columns: 1fr; } }
 
-/* ── Card base ──────────────────────────────────────── */
-.ag-card {
-  background: var(--ag-card);
-  border: 1px solid var(--ag-border);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
-}
-.ag-card:last-child { margin-bottom: 0; }
-.ag-card-title {
-  font-size: .68rem; font-weight: 700; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--ag-muted);
-  margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+@media(max-width: 991px) {
+  .agenda-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-/* ── Tabs sidebar ───────────────────────────────────── */
-.ag-tabs {
-  display: flex; gap: 4px; margin-bottom: 16px;
-  background: var(--ag-surface); border-radius: 10px; padding: 4px;
-}
-.ag-tab {
-  flex: 1; text-align: center; padding: 7px 6px;
-  font-size: .72rem; font-weight: 600; color: var(--ag-muted);
-  border-radius: 7px; cursor: pointer; transition: all .15s; border: none;
-  background: none;
-}
-.ag-tab.active {
-  background: var(--ag-primary); color: #fff;
-  box-shadow: 0 2px 8px rgba(79,142,247,.35);
-}
-.ag-tab-panel { display: none; }
-.ag-tab-panel.active { display: block; }
-
-/* ── Accordion config ────────────────────────────────── */
-.config-accordion-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; background: var(--ag-surface);
-  border-radius: 8px; cursor: pointer; transition: background .15s;
-  margin-bottom: 2px;
-}
-.config-accordion-header:hover { background: var(--ag-hover); }
-.config-accordion-header.active { background: var(--ag-hover); }
-.config-accordion-icon {
-  font-size: .7rem; color: var(--ag-muted); transition: transform .2s;
-}
-.config-accordion-header.active .config-accordion-icon { transform: rotate(180deg); }
-.config-accordion-body {
-  max-height: 0; overflow: hidden; transition: max-height .3s ease;
-}
-.config-accordion-body.show { max-height: 1200px; }
-
-/* ── Day row – layout em 2 linhas ───────────────────── */
-.day-row {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--ag-border);
-}
-.day-row:last-child { border-bottom: none; }
-.day-row-top {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
-}
-.day-toggle { position: relative; width: 36px; height: 19px; flex-shrink: 0; }
-.day-toggle input { opacity: 0; width: 0; height: 0; }
-.day-toggle .slider {
-  position: absolute; inset: 0; background: #2d3748;
-  border-radius: 20px; cursor: pointer; transition: .2s;
-}
-.day-toggle input:checked + .slider { background: var(--ag-primary); }
-.day-toggle .slider::before {
-  content: ''; position: absolute; width: 13px; height: 13px;
-  left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s;
-}
-.day-toggle input:checked + .slider::before { transform: translateX(17px); }
-.day-name {
-  font-size: .78rem; color: var(--ag-text); font-weight: 700; flex: 1;
-}
-.max-label {
-  font-size: .65rem; color: var(--ag-muted); white-space: nowrap;
-}
-.max-input {
-  width: 42px; background: var(--ag-surface); border: 1px solid var(--ag-border);
-  color: var(--ag-text); border-radius: 6px; padding: 3px 5px;
-  font-size: .75rem; text-align: center;
-}
-.max-input:focus { outline: none; border-color: var(--ag-primary); }
-.day-row-bottom { display: flex; gap: 6px; align-items: center; }
-.horarios-input {
-  flex: 1; min-width: 0;
-  background: var(--ag-surface); border: 1px solid var(--ag-border);
-  color: var(--ag-text); border-radius: 6px; padding: 4px 7px;
-  font-size: .7rem; font-family: 'Courier New', monospace;
-}
-.horarios-input::placeholder { color: var(--ag-muted); }
-.horarios-input:focus { outline: none; border-color: var(--ag-primary); }
-.horarios-input:disabled, .max-input:disabled { opacity: .35; }
-.horarios-hint {
-  font-size: .6rem; color: var(--ag-muted); margin-top: 2px;
-  padding-left: 2px; font-style: italic;
+/* Calendar Grid styling */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
 }
 
-/* ── Input padrão no card ───────────────────────────── */
-.ag-input {
-  width: 100%; background: var(--ag-surface); border: 1px solid var(--ag-border);
-  color: var(--ag-text); border-radius: 8px; padding: 8px 12px;
-  font-size: .83rem; margin-bottom: 10px; font-family: inherit;
-}
-.ag-input:focus { outline: none; border-color: var(--ag-primary); }
-.ag-label { font-size: .72rem; color: var(--ag-muted); display: block; margin-bottom: 4px; }
-
-/* ── Botões ─────────────────────────────────────────── */
-.btn-ag-primary {
-  background: var(--ag-primary); color: #fff; border: none; border-radius: 8px;
-  padding: 9px 16px; font-size: .82rem; font-weight: 700; cursor: pointer;
-  width: 100%; font-family: inherit; transition: background .15s;
-}
-.btn-ag-primary:hover { background: #3a7ae8; }
-.btn-ag-danger {
-  background: rgba(248,113,113,.12); color: var(--ag-red);
-  border: 1px solid rgba(248,113,113,.25); border-radius: 8px;
-  padding: 9px 16px; font-size: .82rem; font-weight: 700; cursor: pointer;
-  width: 100%; font-family: inherit; transition: all .15s;
-}
-.btn-ag-danger:hover { background: rgba(248,113,113,.2); }
-
-/* ── Link box ───────────────────────────────────────── */
-.link-box {
-  display: flex; gap: 6px; align-items: stretch; margin-top: 8px;
-}
-.link-input {
-  flex: 1; min-width: 0; background: var(--ag-surface);
-  border: 1px solid var(--ag-border); color: var(--ag-primary);
-  border-radius: 8px; padding: 8px 10px; font-size: .73rem;
-  font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.link-btn {
-  background: var(--ag-surface); border: 1px solid var(--ag-border);
-  color: var(--ag-text); border-radius: 8px; padding: 0 12px;
-  cursor: pointer; transition: background .15s; font-size: .82rem;
-  display: flex; align-items: center;
-}
-.link-btn:hover { background: var(--ag-hover); border-color: var(--ag-primary); }
-
-/* ── Próximas datas ─────────────────────────────────── */
-.proxima-item {
-  padding: 8px 0; border-bottom: 1px solid var(--ag-border);
-  cursor: pointer; transition: background .1s;
-}
-.proxima-item:last-child { border-bottom: none; }
-.proxima-item:hover { background: var(--ag-hover); margin: 0 -20px; padding: 8px 20px; border-radius: 6px; }
-.proxima-date { font-size: .8rem; color: var(--ag-text); font-weight: 700; }
-.proxima-slots { font-size: .7rem; color: var(--ag-primary); margin-top: 2px; }
-.proxima-count { font-size: .68rem; color: var(--ag-muted); }
-
-/* ── Calendário ─────────────────────────────────────── */
-.cal-header-row {
-  display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
-}
-.cal-header-row h5 { font-size: 1rem; font-weight: 800; color: var(--ag-text); margin: 0; }
-.cal-nav-btn {
-  background: var(--ag-surface); border: 1px solid var(--ag-border);
-  color: var(--ag-text); border-radius: 8px; width: 32px; height: 32px;
-  display: flex; align-items: center; justify-content: center;
-  text-decoration: none; font-size: 1rem; transition: background .15s;
-}
-.cal-nav-btn:hover { background: var(--ag-hover); color: var(--ag-text); }
-
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .cal-dow {
-  text-align: center; font-size: .6rem; font-weight: 700; color: var(--ag-muted);
-  text-transform: uppercase; letter-spacing: .04em; padding: 3px 0 6px;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ag-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: 8px;
 }
+
 .cal-cell {
-  height: 46px; border-radius: 8px; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; cursor: pointer;
-  transition: all .15s; position: relative; overflow: hidden;
-  font-size: .78rem; font-weight: 700;
+  aspect-ratio: 1.05;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  background: rgba(55, 65, 81, 0.2);
+  border: 1px solid rgba(75, 85, 99, 0.15);
+  color: var(--ag-muted);
 }
-.cal-cell.empty { cursor: default; }
-.cal-cell.passado { color: #2d3748; cursor: default; }
-.cal-cell.indisponivel { color: #374151; }
-.cal-cell.indisponivel:hover { background: var(--ag-hover); }
+
+.cal-cell:hover:not(.empty):not(.passado) {
+  transform: translateY(-2px);
+  border-color: var(--ag-primary);
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--ag-text);
+}
+
+.cal-cell.empty {
+  background: transparent;
+  border: none;
+  cursor: default;
+}
+
+.cal-cell.passado {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .cal-cell.hoje {
-  background: rgba(79,142,247,.12); color: var(--ag-primary);
-  border: 1.5px solid rgba(79,142,247,.35);
+  border: 2px solid var(--ag-primary);
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--ag-primary);
 }
-.cal-cell.disponivel {
-  background: rgba(52,211,153,.08); color: var(--ag-green);
+
+.cal-cell.disponivel:not(.passado) {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: var(--ag-green);
 }
-.cal-cell.disponivel:hover { background: rgba(52,211,153,.18); }
+
+.cal-cell.disponivel:hover:not(.passado) {
+  background: rgba(16, 185, 129, 0.18);
+}
+
 .cal-cell.bloqueado {
-  background: rgba(248,113,113,.08); color: var(--ag-red);
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: var(--ag-red);
 }
-.cal-cell.com-agt { background: rgba(79,142,247,.1); }
+
 .cal-cell.selected {
-  background: var(--ag-primary) !important; color: #fff !important;
-  box-shadow: 0 4px 14px rgba(79,142,247,.4);
+  background: var(--ag-primary) !important;
+  color: white !important;
+  border-color: var(--ag-primary) !important;
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.35);
+  transform: translateY(-2px);
 }
-.cal-num { font-size: .78rem; font-weight: 800; line-height: 1; }
+
+.cal-num {
+  font-size: 0.95rem;
+}
+
+.cal-lock {
+  font-size: 0.65rem;
+  margin-top: 2px;
+}
+
 .cal-dots {
-  display: flex; gap: 2px; justify-content: center;
-  flex-wrap: nowrap; margin-top: 2px;
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  margin-top: 4px;
 }
+
 .cal-dot {
-  width: 4px; height: 4px; border-radius: 50%; background: var(--ag-muted);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
 }
+
 .cal-dot.pendente   { background: var(--ag-yellow); }
 .cal-dot.confirmado { background: var(--ag-green); }
 .cal-dot.cancelado  { background: var(--ag-red); }
 .cal-dot.realizado  { background: var(--ag-muted); }
-.cal-lock { font-size: .55rem; }
 
-/* ── Legenda ────────────────────────────────────────── */
+/* Legend block */
 .cal-legend {
-  display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px;
-  padding-top: 14px; border-top: 1px solid var(--ag-border);
-  font-size: .68rem; color: var(--ag-muted);
-}
-.cal-legend-item { display: flex; align-items: center; gap: 5px; }
-.cal-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
-
-/* ── Painel de agendamentos do dia ──────────────────── */
-.painel-dia {
-  background: var(--ag-card); border: 1px solid var(--ag-border);
-  border-radius: 14px; padding: 20px; margin-top: 0;
-  display: none;
-}
-.painel-dia-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
-}
-.painel-dia-titulo {
-  font-size: .95rem; font-weight: 800; color: var(--ag-text); margin: 0;
-}
-.painel-actions { display: flex; gap: 8px; }
-
-/* ── Tabela de agendamentos ─────────────────────────── */
-.agt-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
-.agt-table thead th {
-  font-size: .65rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .06em; color: var(--ag-muted); padding: 0 12px 6px;
-}
-.agt-row {
-  background: var(--ag-surface); border-radius: 8px;
-  transition: background .15s;
-}
-.agt-row:hover { background: var(--ag-hover); }
-.agt-row td {
-  padding: 11px 12px; font-size: .82rem; color: var(--ag-text);
-  border-top: 1px solid var(--ag-border); border-bottom: 1px solid var(--ag-border);
-}
-.agt-row td:first-child { border-left: 1px solid var(--ag-border); border-radius: 8px 0 0 8px; }
-.agt-row td:last-child  { border-right: 1px solid var(--ag-border); border-radius: 0 8px 8px 0; }
-.agt-hora { font-size: .9rem; font-weight: 800; color: var(--ag-primary); }
-.agt-nome { font-weight: 700; }
-.agt-sub  { font-size: .7rem; color: var(--ag-muted); margin-top: 1px; }
-.agt-badge {
-  display: inline-flex; align-items: center; padding: 3px 9px;
-  border-radius: 20px; font-size: .65rem; font-weight: 700; white-space: nowrap;
-}
-.agt-badge.pendente   { background: rgba(251,191,36,.12);  color: var(--ag-yellow); }
-.agt-badge.confirmado { background: rgba(52,211,153,.12);  color: var(--ag-green);  }
-.agt-badge.cancelado  { background: rgba(248,113,113,.12); color: var(--ag-red);    }
-.agt-badge.realizado  { background: rgba(100,116,139,.12); color: var(--ag-muted);  }
-.agt-action-btn {
-  background: none; border: 1px solid var(--ag-border); color: var(--ag-muted);
-  border-radius: 6px; padding: 4px 8px; font-size: .7rem; cursor: pointer;
-  transition: all .15s;
-}
-.agt-action-btn:hover { border-color: var(--ag-primary); color: var(--ag-primary); }
-.agt-empty {
-  text-align: center; padding: 28px 0; color: var(--ag-muted); font-size: .82rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(75, 85, 99, 0.2);
+  font-size: 0.72rem;
+  color: var(--ag-muted);
 }
 
-/* ── Stats header ───────────────────────────────────── */
-.ag-stats {
-  display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+.cal-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.ag-stat {
-  background: var(--ag-surface); border: 1px solid var(--ag-border);
-  border-radius: 10px; padding: 10px 14px; flex: 1; min-width: 80px;
+
+.cal-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Stat indicator widgets */
+.stat-widget-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.stat-widget {
+  background: rgba(55, 65, 81, 0.25);
+  border: 1px solid rgba(75, 85, 99, 0.2);
+  border-radius: 12px;
+  padding: 12px;
+  flex: 1;
   text-align: center;
 }
-.ag-stat-num { font-size: 1.2rem; font-weight: 800; color: var(--ag-text); }
-.ag-stat-lbl { font-size: .62rem; color: var(--ag-muted); margin-top: 2px; }
-.ag-stat.accent-blue  .ag-stat-num { color: var(--ag-primary); }
-.ag-stat.accent-green .ag-stat-num { color: var(--ag-green);  }
-.ag-stat.accent-yellow .ag-stat-num { color: var(--ag-yellow); }
 
-/* ── Modal ──────────────────────────────────────────── */
-.ag-overlay {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,.65); z-index: 1060;
-  align-items: center; justify-content: center;
+.stat-widget-num {
+  font-size: 1.3rem;
+  font-weight: 800;
 }
-.ag-overlay.show { display: flex; }
-.ag-modal {
-  background: var(--ag-card); border: 1px solid var(--ag-border);
-  border-radius: 16px; padding: 24px; width: 90%; max-width: 460px;
-  box-shadow: 0 12px 50px rgba(0,0,0,.5);
-}
-.ag-modal-title {
-  font-size: .95rem; font-weight: 800; color: var(--ag-text);
-  margin: 0 0 16px; display: flex; align-items: center; justify-content: space-between;
-}
-.ag-modal-close {
-  background: none; border: none; color: var(--ag-muted);
-  font-size: 1.1rem; cursor: pointer; padding: 0;
-}
-.ag-modal-close:hover { color: var(--ag-text); }
-.ag-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
-.ag-modal-full { grid-column: 1 / -1; }
 
-/* ── Toast ──────────────────────────────────────────── */
+.stat-widget-lbl {
+  font-size: 0.65rem;
+  color: var(--ag-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+/* Day panel items */
+.appt-card {
+  background: rgba(55, 65, 81, 0.2);
+  border: 1px solid rgba(75, 85, 99, 0.15);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.appt-card:hover {
+  background: rgba(55, 65, 81, 0.3);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.appt-time-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.appt-time-badge {
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--ag-primary);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.appt-client-info {
+  margin-top: 4px;
+}
+
+.appt-client-name {
+  font-weight: 700;
+  color: var(--ag-text);
+  font-size: 0.9rem;
+}
+
+.appt-client-meta {
+  font-size: 0.75rem;
+  color: var(--ag-muted);
+  margin-top: 2px;
+}
+
+.appt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(75, 85, 99, 0.15);
+}
+
+/* Comma separated hours pills style */
+.hour-pill {
+  background: var(--ag-primary);
+  color: white;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Toast */
 #ag-toast {
-  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
-  background: var(--ag-card); color: var(--ag-text);
-  padding: 12px 18px; border-radius: 10px;
-  font-size: .82rem; display: none; align-items: center; gap: 8px;
-  box-shadow: 0 6px 24px rgba(0,0,0,.5); border-left: 3px solid var(--ag-primary);
-  max-width: 320px;
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  background: var(--ag-card);
+  color: var(--ag-text);
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  border-left: 4px solid var(--ag-primary);
 }
 
-/* ── Status change select ───────────────────────────── */
-.status-select {
-  background: var(--ag-surface); border: 1px solid var(--ag-border);
-  color: var(--ag-text); border-radius: 6px; padding: 4px 8px;
-  font-size: .72rem; cursor: pointer;
+.day-row-premium {
+  padding: 16px;
+  background: rgba(55, 65, 81, 0.15);
+  border-radius: 12px;
+  border: 1px solid rgba(75, 85, 99, 0.15);
+  margin-bottom: 12px;
 }
-.status-select:focus { outline: none; border-color: var(--ag-primary); }
+
+.day-row-premium:last-child {
+  margin-bottom: 0;
+}
 </style>
 {% endblock %}
 
@@ -364,167 +365,59 @@
 {% set mes_prox = mes % 12 + 1 %}
 {% set ano_prox = ano + 1 if mes == 12 else ano %}
 
-<!-- Cabeçalho -->
-<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
-  <div>
-    <h4 class="mb-0 fw-bold">
+<!-- Cabeçalho Principal -->
+<div class="row align-items-center mb-4">
+  <div class="col-md-7">
+    <h1 class="h3 mb-0 text-gray-800 fw-bold">
       <i class="fas fa-calendar-days me-2" style="color:var(--ag-primary)"></i>Agenda de Consultas
-    </h4>
-    <small class="text-muted">Configure disponibilidade e gerencie agendamentos</small>
+    </h1>
+    <p class="text-muted mb-0">Controle a disponibilidade do escritório e gerencie seus compromissos</p>
   </div>
-  <div class="d-flex gap-2">
-    <button class="btn btn-sm btn-outline-secondary" onclick="abrirModalNovo()">
+  <div class="col-md-5 text-md-end mt-3 mt-md-0">
+    <button class="btn btn-primary" onclick="abrirModalNovoManual()">
       <i class="fas fa-plus me-1"></i>Novo Agendamento
     </button>
-    <a href="/agendar" target="_blank" class="btn btn-sm btn-outline-primary">
-      <i class="fas fa-external-link-alt me-1"></i>Ver Página Pública
+    <a href="/agendar" target="_blank" class="btn btn-outline-primary ms-2">
+      <i class="fas fa-external-link-alt me-1"></i>Página Pública
     </a>
   </div>
 </div>
 
-<div class="ag-layout">
-
-  <!-- ═══════════════════════════════════════════════════
-       COLUNA ESQUERDA — sidebar de configuração
-  ════════════════════════════════════════════════════ -->
-  <div>
-    <!-- Tabs -->
-    <div class="ag-tabs">
-      <button class="ag-tab active" onclick="switchTab('config', this)">
-        <i class="fas fa-sliders me-1"></i>Disponib.
-      </button>
-      <button class="ag-tab" onclick="switchTab('bloquear', this)">
-        <i class="fas fa-ban me-1"></i>Bloquear
-      </button>
-      <button class="ag-tab" onclick="switchTab('link', this)">
-        <i class="fas fa-link me-1"></i>Link
-      </button>
-    </div>
-
-    <!-- Tab: Disponibilidade semanal -->
-    <div id="tab-config" class="ag-tab-panel active">
-      <div class="ag-card">
-        <!-- Accordion header -->
-        <div class="config-accordion-header active" onclick="toggleAccordion(this)">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <i class="fas fa-sliders" style="color:var(--ag-primary)"></i>
-            <span style="font-size:.78rem;font-weight:700;color:var(--ag-text)">Disponibilidade Semanal</span>
-          </div>
-          <i class="fas fa-chevron-down config-accordion-icon"></i>
-        </div>
-
-        <!-- Accordion body -->
-        <div class="config-accordion-body show">
-          <form id="form-config" style="margin-top:10px;">
-            {% for dia in config_semanal %}
-            <div class="day-row">
-            <div class="day-row-top">
-              <label class="day-toggle" title="{{ dias_label[dia.dia_semana] }}">
-                <input type="checkbox" name="ativo_{{ dia.dia_semana }}"
-                       {% if dia.ativo %}checked{% endif %}
-                       onchange="toggleDia({{ dia.dia_semana }}, this.checked)">
-                <span class="slider"></span>
-              </label>
-              <span class="day-name">{{ dias_label[dia.dia_semana] }}</span>
-              <span class="max-label">Máx:</span>
-              <input type="number" class="max-input"
-                     id="max_{{ dia.dia_semana }}"
-                     value="{{ dia.max_por_dia or 5 }}"
-                     min="1" max="20"
-                     {% if not dia.ativo %}disabled{% endif %}>
-            </div>
-            <div class="day-row-bottom">
-              <input type="text"
-                     class="horarios-input"
-                     id="horarios_{{ dia.dia_semana }}"
-                     placeholder="09:00,10:00,14:00,15:00"
-                     value="{{ dia.horarios | join(',') }}"
-                     {% if not dia.ativo %}disabled{% endif %}>
-            </div>
-            <div class="horarios-hint">Horários separados por vírgula</div>
-          </div>
-          {% endfor %}
-          <button type="button" class="btn-ag-primary mt-3" onclick="salvarConfig()">
-            <i class="fas fa-save me-2"></i>Salvar Configuração
-          </button>
-        </form>
-        </div>
-
-        <!-- Resumo quando colapsado -->
-        <div id="config-resumo" style="display:none;margin-top:8px;font-size:.7rem;color:var(--ag-muted);padding:0 12px;">
-          <i class="fas fa-info-circle me-1"></i>
-          Clique para expandir e configurar os horários
-        </div>
-      </div>
-    </div>
-
-    <!-- Tab: Bloquear data -->
-    <div id="tab-bloquear" class="ag-tab-panel">
-      <div class="ag-card">
-        <div class="ag-card-title"><i class="fas fa-ban"></i> Bloquear Data</div>
-        <label class="ag-label">Data *</label>
-        <input type="date" id="inp-bloquear-data" class="ag-input">
-        <label class="ag-label">Motivo (opcional)</label>
-        <input type="text" id="inp-bloquear-motivo" class="ag-input"
-               placeholder="ex: Feriado, Férias, Evento...">
-        <button class="btn-ag-danger" onclick="bloquearData()">
-          <i class="fas fa-lock me-2"></i>Bloquear Data
-        </button>
-        <hr style="border-color:var(--ag-border);margin:16px 0 12px">
-        <div class="ag-card-title"><i class="fas fa-unlock"></i> Desbloquear</div>
-        <label class="ag-label">Data bloqueada</label>
-        <input type="date" id="inp-desbloquear-data" class="ag-input">
-        <button class="btn-ag-primary" onclick="desbloquearData()">
-          <i class="fas fa-unlock me-2"></i>Desbloquear Data
-        </button>
-      </div>
-    </div>
-
-    <!-- Tab: Link público -->
-    <div id="tab-link" class="ag-tab-panel">
-      <div class="ag-card">
-        <div class="ag-card-title"><i class="fas fa-share-nodes"></i> Link Público</div>
-        <p style="font-size:.78rem;color:var(--ag-muted);line-height:1.6;margin-bottom:12px;">
-          Compartilhe este link com os clientes. Eles escolhem a data e horário diretamente,
-          sem precisar entrar em contato.
-        </p>
-        <div class="link-box">
-          <input type="text" class="link-input" id="booking-link-input"
-                 readonly value="{{ request.host_url.rstrip('/') }}/agendar">
-          <button class="link-btn" onclick="copiarLink()" title="Copiar">
-            <i class="fas fa-copy"></i>
-          </button>
-          <a href="/agendar" target="_blank" class="link-btn" title="Abrir">
-            <i class="fas fa-external-link-alt"></i>
-          </a>
-        </div>
-        <div id="link-copiado" style="display:none;color:var(--ag-green);font-size:.72rem;margin-top:6px;">
-          <i class="fas fa-check me-1"></i>Link copiado!
-        </div>
-        <hr style="border-color:var(--ag-border);margin:16px 0 14px">
-        <div class="ag-card-title"><i class="fas fa-clock"></i> Próximas Disponíveis</div>
-        <div id="proximas-datas">
-          <span style="color:var(--ag-muted);font-size:.78rem">Carregando...</span>
-        </div>
-      </div>
-    </div>
+<!-- Barra de Opções Superior -->
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+  <div class="premium-tab-group">
+    <button class="btn-tab active" id="tab-btn-view" onclick="switchMainTab('view')">
+      <i class="fas fa-calendar-alt"></i>Painel da Agenda
+    </button>
+    <button class="btn-tab" id="tab-btn-settings" onclick="switchMainTab('settings')">
+      <i class="fas fa-cog"></i>Configurações & Horários
+    </button>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════
-       COLUNA DIREITA — calendário + agendamentos
-  ════════════════════════════════════════════════════ -->
-  <div>
-    <!-- Calendário -->
-    <div class="ag-card" style="margin-bottom:14px;">
-      <div class="cal-header-row">
-        <a class="cal-nav-btn"
-           href="{{ url_for('admin.agenda', mes=mes_ant, ano=ano_ant) }}">&#8249;</a>
-        <h5>{{ nome_mes }} {{ ano }}</h5>
-        <a class="cal-nav-btn"
-           href="{{ url_for('admin.agenda', mes=mes_prox, ano=ano_prox) }}">›</a>
+  <!-- Alerta de Notificação do Navegador -->
+  <div id="btn-allow-notifications" class="d-none">
+    <button class="btn btn-sm btn-outline-warning" onclick="requestNotificationPermission()">
+      <i class="fas fa-bell me-1"></i>Ativar Alertas no Computador
+    </button>
+  </div>
+</div>
+
+<!-- ==============================================
+     SEÇÃO 1: PAINEL DA AGENDA (CALENDÁRIO & DIA)
+     ============================================== -->
+<div id="section-view" class="main-section">
+  <div class="agenda-grid">
+    
+    <!-- Coluna Esquerda: Calendário -->
+    <div class="premium-card">
+      <div class="d-flex align-items-center justify-content-between mb-4">
+        <a class="btn btn-outline-secondary btn-sm"
+           href="{{ url_for('admin.agenda', mes=mes_ant, ano=ano_ant) }}"><i class="fas fa-chevron-left"></i></a>
+        <h4 class="mb-0 fw-bold text-capitalize">{{ nome_mes }} {{ ano }}</h4>
+        <a class="btn btn-outline-secondary btn-sm"
+           href="{{ url_for('admin.agenda', mes=mes_prox, ano=ano_prox) }}"><i class="fas fa-chevron-right"></i></a>
       </div>
 
-      <!-- Dias da semana -->
       <div class="cal-grid">
         {% for d in ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'] %}
         <div class="cal-dow">{{ d }}</div>
@@ -548,7 +441,7 @@
               {% elif data_str == hoje %}{% set cls = cls + ' hoje' %}{% endif %}
               {% if is_bloqueado %}{% set cls = cls + ' bloqueado' %}
               {% elif is_ativo and not is_passado %}{% set cls = cls + ' disponivel' %}
-              {% else %}{% set cls = cls + ' indisponivel' %}{% endif %}
+              {% endif %}
               {% if agts %}{% set cls = cls + ' com-agt' %}{% endif %}
 
               <div class="{{ cls }}" id="cell-{{ data_str }}"
@@ -559,10 +452,10 @@
                   <span class="cal-lock">🔒</span>
                 {% elif agts %}
                   <div class="cal-dots">
-                    {% for a in agts[:4] %}
+                    {% for a in agts[:3] %}
                     <span class="cal-dot {{ a.status }}"></span>
                     {% endfor %}
-                    {% if agts|length > 4 %}
+                    {% if agts|length > 3 %}
                     <span class="cal-dot" style="background:var(--ag-muted)"></span>
                     {% endif %}
                   </div>
@@ -573,13 +466,13 @@
         {% endfor %}
       </div>
 
-      <!-- Legenda -->
+      <!-- Legenda do Calendário -->
       <div class="cal-legend">
         <div class="cal-legend-item">
-          <div class="cal-legend-dot" style="background:var(--ag-green)"></div> Disponível
+          <div class="cal-legend-dot" style="background:rgba(16,185,129,0.25); border: 1px solid var(--ag-green);"></div> Disponível
         </div>
         <div class="cal-legend-item">
-          <div class="cal-legend-dot" style="background:var(--ag-red)"></div> Bloqueado
+          <div class="cal-legend-dot" style="background:rgba(239,68,68,0.25); border: 1px solid var(--ag-red);"></div> Bloqueado
         </div>
         <div class="cal-legend-item">
           <div class="cal-legend-dot" style="background:var(--ag-yellow)"></div> Pendente
@@ -596,121 +489,276 @@
       </div>
     </div>
 
-    <!-- Painel do dia selecionado -->
-    <div class="painel-dia" id="painel-dia">
-      <div class="painel-dia-header">
-        <h6 class="painel-dia-titulo" id="painel-dia-titulo">
-          <i class="fas fa-list-ul me-2" style="color:var(--ag-primary)"></i>Agendamentos
-        </h6>
-        <div class="painel-actions">
-          <button class="btn btn-sm btn-success" onclick="abrirModalNovo()">
-            <i class="fas fa-plus me-1"></i>Novo
-          </button>
-          <button class="btn btn-sm" id="btn-toggle-bloqueio" onclick="toggleBloqueio()">
-            <i class="fas fa-ban me-1"></i>Bloquear
+    <!-- Coluna Direita: Detalhes do Dia Selecionado -->
+    <div class="premium-card" id="painel-dia-container" style="min-height: 380px;">
+      <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+        <h4 class="mb-0 fw-bold" id="painel-dia-titulo">
+          <i class="fas fa-list-check me-2 text-primary"></i>Agendamentos do Dia
+        </h4>
+        <div>
+          <button class="btn btn-sm btn-outline-danger" id="btn-toggle-bloqueio" onclick="toggleBloqueio()" disabled>
+            <i class="fas fa-ban me-1"></i>Bloquear Dia
           </button>
         </div>
       </div>
 
-      <!-- Stats do dia -->
-      <div class="ag-stats" id="dia-stats"></div>
+      <!-- Widgets de estatística do dia -->
+      <div class="stat-widget-row" id="dia-stats">
+        <div class="stat-widget"><div class="stat-widget-num text-muted">—</div><div class="stat-widget-lbl">Total</div></div>
+        <div class="stat-widget"><div class="stat-widget-num text-warning">—</div><div class="stat-widget-lbl">Pendentes</div></div>
+        <div class="stat-widget"><div class="stat-widget-num text-success">—</div><div class="stat-widget-lbl">Confirmados</div></div>
+      </div>
 
-      <!-- Tabela de agendamentos -->
+      <!-- Lista de agendamentos dinâmicos -->
       <div id="lista-agendamentos-dia">
-        <div class="agt-empty">
-          <i class="fas fa-calendar-xmark" style="font-size:1.5rem;opacity:.3;display:block;margin-bottom:8px"></i>
-          Selecione um dia no calendário
+        <div class="text-center py-5 text-muted">
+          <i class="fas fa-calendar-day fa-3x mb-3" style="opacity: 0.3;"></i>
+          <p class="mb-0">Selecione um dia no calendário para ver e gerenciar os agendamentos.</p>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ══════════════════════════════════════════════════════
-     SEÇÃO: Todos os Agendamentos (full-width)
-═══════════════════════════════════════════════════════ -->
-<div class="ag-card" style="margin-top:20px;" id="secao-todos">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
-    <div class="ag-card-title" style="margin-bottom:0;">
-      <i class="fas fa-table-list"></i> Todos os Agendamentos
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <!-- Filtro de status -->
-      <select id="filtro-status" class="status-select" onchange="filtrarTodos()" style="font-size:.75rem;">
-        <option value="">Todos os status</option>
-        <option value="pendente">⏳ Pendente</option>
-        <option value="confirmado">✅ Confirmado</option>
-        <option value="realizado">🏁 Realizado</option>
-        <option value="cancelado">❌ Cancelado</option>
-      </select>
-      <!-- Busca -->
-      <input type="text" id="busca-todos" class="ag-input"
-             style="width:200px;margin:0;padding:6px 10px;font-size:.75rem;"
-             placeholder="🔍 Buscar cliente..." oninput="filtrarTodos()">
-      <button class="btn btn-sm btn-outline-secondary" onclick="carregarTodos()">
-        <i class="fas fa-sync-alt"></i>
-      </button>
-    </div>
   </div>
 
-  <!-- Stats globais -->
-  <div class="ag-stats" id="todos-stats" style="margin-bottom:14px;"></div>
-
-  <!-- Tabela -->
-  <div id="tabela-todos">
-    <div class="agt-empty">
-      <i class="fas fa-spinner fa-spin"></i> Carregando agendamentos...
-    </div>
-  </div>
-</div>
-
-<!-- ── Modal: Novo Agendamento ─────────────────────────── -->
-<div class="ag-overlay" id="modal-novo">
-  <div class="ag-modal">
-    <div class="ag-modal-title">
-      <span><i class="fas fa-calendar-plus me-2" style="color:var(--ag-primary)"></i>Novo Agendamento</span>
-      <button class="ag-modal-close" onclick="fecharModal()">✕</button>
-    </div>
-    <div class="ag-modal-grid">
-      <div class="ag-modal-full">
-        <label class="ag-label">Data</label>
-        <input type="text" id="modal-data" class="ag-input" readonly
-               style="color:var(--ag-muted);cursor:default">
+  <!-- Todos os Agendamentos (Tabela Completa no rodapé do painel) -->
+  <div class="premium-card mt-4">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+      <div class="premium-card-title mb-0">
+        <i class="fas fa-list-ol text-primary"></i> Todos os Agendamentos Cadastrados
       </div>
-      <div class="ag-modal-full">
-        <label class="ag-label">Horário *</label>
-        <select id="modal-hora" class="ag-input">
-          <option value="">Selecione...</option>
+      
+      <div class="d-flex gap-2 align-items-center flex-wrap">
+        <select id="filtro-status" class="form-select form-select-sm" onchange="filtrarTodos()" style="width: 160px; background-color: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text);">
+          <option value="">Todos os status</option>
+          <option value="pendente">⏳ Pendentes</option>
+          <option value="confirmado">✅ Confirmados</option>
+          <option value="realizado">🏁 Realizados</option>
+          <option value="cancelado">❌ Cancelados</option>
         </select>
-      </div>
-      <div>
-        <label class="ag-label">Nome do cliente *</label>
-        <input type="text" id="modal-nome" class="ag-input" placeholder="Nome completo">
-      </div>
-      <div>
-        <label class="ag-label">Telefone</label>
-        <input type="text" id="modal-tel" class="ag-input" placeholder="(11) 99999-9999">
-      </div>
-      <div class="ag-modal-full">
-        <label class="ag-label">Benefício</label>
-        <input type="text" id="modal-ben" class="ag-input" placeholder="ex: Aposentadoria">
-      </div>
-      <div class="ag-modal-full">
-        <label class="ag-label">Observações</label>
-        <textarea id="modal-obs" class="ag-input" rows="2"
-                  placeholder="Observações opcionais" style="resize:vertical"></textarea>
+        
+        <input type="text" id="busca-todos" class="form-control form-control-sm"
+               style="width: 220px; background-color: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text);"
+               placeholder="Buscar cliente ou benefício..." oninput="filtrarTodos()">
+               
+        <button class="btn btn-sm btn-outline-secondary" onclick="carregarTodos()" title="Recarregar dados">
+          <i class="fas fa-sync-alt"></i>
+        </button>
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:4px;">
-      <button class="btn btn-secondary flex-fill" onclick="fecharModal()">Cancelar</button>
-      <button class="btn btn-primary flex-fill" onclick="confirmarAgendamento()">
-        <i class="fas fa-check me-1"></i>Confirmar
-      </button>
+
+    <!-- Stats de Todos os Agendamentos -->
+    <div class="stat-widget-row" id="todos-stats">
+      <!-- Inserido dinamicamente por JS -->
+    </div>
+
+    <!-- Tabela de dados -->
+    <div id="tabela-todos">
+      <div class="text-center py-4 text-muted">
+        <i class="fas fa-spinner fa-spin me-2"></i> Carregando registros de agendamentos...
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Toast -->
+<!-- ==============================================
+     SEÇÃO 2: CONFIGURAÇÕES & DISPONIBILIDADE
+     ============================================== -->
+<div id="section-settings" class="main-section d-none">
+  <div class="row">
+    
+    <!-- Coluna Esquerda: Planejamento de Horários Semanais -->
+    <div class="col-lg-8">
+      <div class="premium-card">
+        <div class="premium-card-header">
+          <h5 class="fw-bold mb-0 text-primary"><i class="fas fa-sliders me-2"></i>Planejamento da Disponibilidade Semanal</h5>
+          <p class="text-muted small mt-1 mb-0">Configure os dias da semana em que atende e adicione os respectivos horários de consulta.</p>
+        </div>
+
+        <form id="form-config">
+          {% for dia in config_semanal %}
+          <div class="day-row-premium">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" role="switch" 
+                         id="ativo_{{ dia.dia_semana }}" name="ativo_{{ dia.dia_semana }}"
+                         {% if dia.ativo %}checked{% endif %}
+                         onchange="toggleDiaSemana({{ dia.dia_semana }}, this.checked)">
+                  <label class="form-check-label fw-bold text-light" for="ativo_{{ dia.dia_semana }}">
+                    {{ dias_label[dia.dia_semana] }}
+                  </label>
+                </div>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="text-muted small">Limite Diário:</span>
+                <input type="number" class="form-control form-control-sm text-center" 
+                       id="max_{{ dia.dia_semana }}" value="{{ dia.max_por_dia or 5 }}"
+                       min="1" max="30" style="width: 60px; background: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text);"
+                       {% if not dia.ativo %}disabled{% endif %}>
+              </div>
+            </div>
+
+            <!-- Editor de Horários Interativo (Pills) -->
+            <div class="mb-2">
+              <span class="text-muted small d-block mb-2">Horários de atendimento disponíveis:</span>
+              <div class="d-flex flex-wrap gap-2 mb-3" id="pills-container-{{ dia.dia_semana }}">
+                <!-- Inserido via JS no init -->
+              </div>
+              
+              <!-- Campo para adicionar novo horário -->
+              <div class="d-flex gap-2 align-items-center" style="max-width: 250px;">
+                <input type="time" class="form-control form-control-sm" id="new-hour-{{ dia.dia_semana }}" 
+                       style="background: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text);"
+                       {% if not dia.ativo %}disabled{% endif %}>
+                <button type="button" class="btn btn-sm btn-primary" onclick="addHourPill({{ dia.dia_semana }})"
+                        id="btn-add-hour-{{ dia.dia_semana }}" {% if not dia.ativo %}disabled{% endif %}>
+                  <i class="fas fa-plus me-1"></i>Adicionar
+                </button>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+
+          <div class="text-end mt-4">
+            <button type="button" class="btn btn-primary px-4" onclick="salvarConfigSemanal()">
+              <i class="fas fa-save me-2"></i>Salvar Planejamento Semanal
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Coluna Direita: Bloqueio de Datas & Link Público -->
+    <div class="col-lg-4">
+      
+      <!-- Link Público de Agendamento -->
+      <div class="premium-card">
+        <h5 class="fw-bold mb-3 text-primary"><i class="fas fa-share-nodes me-2"></i>Link Público</h5>
+        <p class="text-muted small">Compartilhe o link com os clientes no WhatsApp ou Instagram. Eles poderão escolher e reservar consultas sozinhos.</p>
+        
+        <div class="input-group mb-3">
+          <input type="text" class="form-control form-control-sm text-primary" id="booking-link-input"
+                 readonly value="{{ request.host_url.rstrip('/') }}/agendar" 
+                 style="background: var(--ag-surface); border-color: var(--ag-border); font-family: monospace; font-size: 0.8rem;">
+          <button class="btn btn-outline-secondary btn-sm" onclick="copiarLink()" title="Copiar Link">
+            <i class="fas fa-copy"></i>
+          </button>
+        </div>
+
+        <!-- QR Code do Link -->
+        <div class="text-center bg-dark p-3 rounded mb-3" style="border: 1px solid var(--ag-border);">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ request.host_url.rstrip('/') | urlencode }}/agendar" 
+               alt="QR Code de agendamento" class="img-fluid rounded shadow-sm" style="max-height: 140px;">
+          <div class="text-muted small mt-2">QR Code de Agendamento</div>
+        </div>
+        
+        <div class="d-grid gap-2">
+          <a href="/agendar" target="_blank" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-external-link-alt me-1"></i>Testar Link Público
+          </a>
+        </div>
+      </div>
+
+      <!-- Bloquear Data Específica -->
+      <div class="premium-card">
+        <h5 class="fw-bold mb-3 text-primary"><i class="fas fa-ban me-2"></i>Bloquear Data</h5>
+        <p class="text-muted small">Evite agendamentos em dias específicos (ex: feriados, recesso, imprevistos).</p>
+        
+        <div class="mb-3">
+          <label class="form-label small text-muted">Data para Bloqueio</label>
+          <input type="date" id="inp-bloquear-data" class="form-control" 
+                 style="background: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text);">
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label small text-muted">Motivo (Opcional)</label>
+          <input type="text" id="inp-bloquear-motivo" class="form-control" placeholder="Ex: Recesso médico"
+                 style="background: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text);">
+        </div>
+
+        <button class="btn btn-danger w-100 btn-sm fw-bold" onclick="bloquearDataPanel()">
+          <i class="fas fa-lock me-1"></i>Bloquear Data Selecionada
+        </button>
+
+        <hr class="border-secondary my-4">
+
+        <h6 class="fw-bold text-light mb-3"><i class="fas fa-lock me-1"></i>Datas Bloqueadas Atualmente</h6>
+        <div class="d-flex flex-wrap gap-2" id="lista-datas-bloqueadas">
+          {% for data_blq in bloqueios %}
+            <span class="badge bg-danger p-2 d-flex align-items-center gap-2" style="font-size:0.75rem;">
+              {{ data_blq }}
+              <a href="javascript:void(0)" onclick="desbloquearDataDireto('{{ data_blq }}')" style="color:white; text-decoration:none;" title="Desbloquear"><i class="fas fa-times"></i></a>
+            </span>
+          {% else %}
+            <span class="text-muted small">Nenhuma data bloqueada cadastrada.</span>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ==============================================
+     MODAL DE NOVO AGENDAMENTO MANUAL
+     ============================================== -->
+<div class="modal fade" id="modal-novo-manual" tabindex="-1" aria-labelledby="modalNovoLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-light" style="background: var(--ag-card); border: 1px solid var(--ag-border);">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title fw-bold" id="modalNovoLabel">
+          <i class="fas fa-calendar-plus text-primary me-2"></i>Novo Agendamento Manual
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        
+        <div class="mb-3">
+          <label class="form-label small text-muted">Data da Consulta *</label>
+          <input type="date" id="modal-data-input" class="form-control" 
+                 style="background: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text);"
+                 onchange="carregarHorariosDisponiveisModal(this.value)">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small text-muted">Horário Disponível *</label>
+          <select id="modal-hora-select" class="form-select" 
+                  style="background: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text);">
+            <option value="">Selecione a data primeiro...</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label small text-muted">Nome do Cliente *</label>
+            <input type="text" id="modal-nome-input" class="form-control" placeholder="Nome completo"
+                   style="background: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text);">
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label small text-muted">WhatsApp / Celular *</label>
+            <input type="text" id="modal-tel-input" class="form-control" placeholder="5519999999999"
+                   style="background: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text);">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small text-muted">Benefício de Interesse</label>
+          <input type="text" id="modal-ben-input" class="form-control" placeholder="Ex: BPC LOAS, Aposentadoria"
+                 style="background: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text);">
+        </div>
+
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-sm px-3" onclick="confirmarAgendamentoManual()">
+          <i class="fas fa-check me-1"></i>Confirmar Agendamento
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sistema Toast de Notificações -->
 <div id="ag-toast">
   <i id="ag-toast-icon" class="fas fa-check-circle" style="color:var(--ag-green)"></i>
   <span id="ag-toast-msg"></span>
@@ -719,42 +767,140 @@
 
 {% block extra_js %}
 <script>
-let selectedDate     = null;
+// Variáveis Globais de Estado
+let selectedDate = null;
 let selectedBloqueado = false;
+let bootstrapModalInstance = null;
 
-// ── Tabs sidebar ─────────────────────────────────────
-function switchTab(name, btn) {
-  document.querySelectorAll('.ag-tab').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.ag-tab-panel').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('tab-' + name).classList.add('active');
-}
+// Inicializa a página e carrega dados
+document.addEventListener("DOMContentLoaded", function() {
+  // Inicializa os pills de horários
+  {% for dia in config_semanal %}
+    initHourPills({{ dia.dia_semana }}, "{{ dia.horarios | join(',') }}");
+  {% endfor %}
 
-// ── Accordion ────────────────────────────────────────
-function toggleAccordion(header) {
-  const body   = header.nextElementSibling;
-  const resumo = document.getElementById('config-resumo');
-  const isOpen = header.classList.contains('active');
-  
-  if (isOpen) {
-    header.classList.remove('active');
-    body.classList.remove('show');
-    if (resumo) resumo.style.display = 'block';
+  // Carrega agendamentos na tabela
+  carregarTodos();
+
+  // Seleciona o dia de hoje automaticamente se estiver na tela
+  const hojeStr = "{{ hoje }}";
+  const cellHoje = document.getElementById("cell-" + hojeStr);
+  if (cellHoje) {
+    selecionarDia(hojeStr, false);
+  }
+
+  // Inicializa o sistema de lembrete por som e notificação
+  initNotificationSystem();
+});
+
+// Alterna entre abas principais
+function switchMainTab(mode) {
+  document.getElementById("tab-btn-view").classList.remove("active");
+  document.getElementById("tab-btn-settings").classList.remove("active");
+  document.getElementById("section-view").classList.add("d-none");
+  document.getElementById("section-settings").classList.add("d-none");
+
+  if (mode === "view") {
+    document.getElementById("tab-btn-view").classList.add("active");
+    document.getElementById("section-view").classList.remove("d-none");
   } else {
-    header.classList.add('active');
-    body.classList.add('show');
-    if (resumo) resumo.style.display = 'none';
+    document.getElementById("tab-btn-settings").classList.add("active");
+    document.getElementById("section-settings").classList.remove("d-none");
   }
 }
 
-// ── Selecionar dia no calendário ─────────────────────
+// ── SISTEMA DE PILLS DE HORÁRIOS INTERATIVOS ──
+let activeHours = {};
+
+function initHourPills(diaSemana, initialHoursStr) {
+  activeHours[diaSemana] = initialHoursStr ? initialHoursStr.split(',').map(h => h.trim()).filter(Boolean) : [];
+  renderHourPills(diaSemana);
+}
+
+function renderHourPills(diaSemana) {
+  const container = document.getElementById('pills-container-' + diaSemana);
+  if (!container) return;
+  
+  if (activeHours[diaSemana].length === 0) {
+    container.innerHTML = '<span class="text-muted" style="font-size:0.7rem;">Nenhum horário configurado para este dia</span>';
+    return;
+  }
+  
+  // Ordena os horários
+  activeHours[diaSemana].sort();
+  
+  container.innerHTML = activeHours[diaSemana].map((h, index) => `
+    <span class="badge bg-primary p-2 d-inline-flex align-items-center gap-2" style="font-size:0.75rem;">
+      ${h}
+      <a href="javascript:void(0)" onclick="removeHourPill(${diaSemana}, ${index})" style="color:white; text-decoration:none;"><i class="fas fa-times"></i></a>
+    </span>
+  `).join('');
+}
+
+function addHourPill(diaSemana) {
+  const input = document.getElementById('new-hour-' + diaSemana);
+  if (!input) return;
+  const val = input.value;
+  if (!val) {
+    showToast('Selecione um horário válido!', 'error');
+    return;
+  }
+  
+  if (!activeHours[diaSemana].includes(val)) {
+    activeHours[diaSemana].push(val);
+    renderHourPills(diaSemana);
+  }
+  input.value = '';
+}
+
+function removeHourPill(diaSemana, index) {
+  activeHours[diaSemana].splice(index, 1);
+  renderHourPills(diaSemana);
+}
+
+function toggleDiaSemana(dia, ativo) {
+  document.getElementById('max_' + dia).disabled = !ativo;
+  document.getElementById('new-hour-' + dia).disabled = !ativo;
+  document.getElementById('btn-add-hour-' + dia).disabled = !ativo;
+}
+
+// Salva a configuração de horários semanais
+function salvarConfigSemanal() {
+  const dias = [];
+  for (let d = 0; d <= 6; d++) {
+    const chk = document.getElementById(`ativo_${d}`);
+    if (!chk) continue;
+    
+    const horarios = activeHours[d] || [];
+    dias.push({
+      dia_semana: d,
+      ativo: chk.checked,
+      horarios: horarios,
+      max_por_dia: parseInt(document.getElementById('max_' + d).value) || 5
+    });
+  }
+  
+  fetch('/admin/agenda/config', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({dias})
+  })
+  .then(r => r.json())
+  .then(d => {
+    showToast(d.message || 'Configurações de disponibilidade salvas!', d.status === 'success' ? 'success' : 'error');
+    if (d.status === 'success') {
+      setTimeout(() => location.reload(), 1000);
+    }
+  });
+}
+
+// ── GERENCIAMENTO DO DIA SELECIONADO ──
 function selecionarDia(data, bloqueado) {
-  // Desmarca seleção anterior
   if (selectedDate) {
     const prev = document.getElementById('cell-' + selectedDate);
     if (prev) prev.classList.remove('selected');
   }
-  selectedDate      = data;
+  selectedDate = data;
   selectedBloqueado = bloqueado;
 
   const cell = document.getElementById('cell-' + data);
@@ -763,89 +909,92 @@ function selecionarDia(data, bloqueado) {
   const [a, m, d] = data.split('-');
   const dataBR = `${d}/${m}/${a}`;
 
-  document.getElementById('painel-dia').style.display = '';
   document.getElementById('painel-dia-titulo').innerHTML =
-    `<i class="fas fa-list-ul me-2" style="color:var(--ag-primary)"></i>${dataBR}`;
+    `<i class="fas fa-calendar-day me-2 text-primary"></i>Agendamentos — ${dataBR}`;
 
   const btnBlq = document.getElementById('btn-toggle-bloqueio');
+  btnBlq.disabled = false;
   if (bloqueado) {
     btnBlq.className = 'btn btn-sm btn-success';
-    btnBlq.innerHTML = '<i class="fas fa-unlock me-1"></i>Desbloquear';
+    btnBlq.innerHTML = '<i class="fas fa-unlock me-1"></i>Desbloquear Dia';
   } else {
     btnBlq.className = 'btn btn-sm btn-outline-danger';
-    btnBlq.innerHTML = '<i class="fas fa-ban me-1"></i>Bloquear';
+    btnBlq.innerHTML = '<i class="fas fa-ban me-1"></i>Bloquear Dia';
   }
 
   carregarAgendamentosDia(data);
 }
 
-// ── Carregar agendamentos do dia via API ─────────────
+// Carrega os agendamentos do dia via AJAX
 function carregarAgendamentosDia(data) {
   const container = document.getElementById('lista-agendamentos-dia');
-  const stats     = document.getElementById('dia-stats');
-  container.innerHTML = '<div class="agt-empty"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>';
-  stats.innerHTML = '';
+  const stats = document.getElementById('dia-stats');
+  container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
 
   fetch('/admin/agenda/agendamentos-dia/' + data)
     .then(r => r.json())
     .then(resp => {
       const agts = resp.agendamentos || [];
 
-      // Stats
-      const pendentes   = agts.filter(a => a.status === 'pendente').length;
+      // Estatísticas
+      const pendentes = agts.filter(a => a.status === 'pendente').length;
       const confirmados = agts.filter(a => a.status === 'confirmado').length;
-      const realizados  = agts.filter(a => a.status === 'realizado').length;
+      
       stats.innerHTML = `
-        <div class="ag-stat"><div class="ag-stat-num">${agts.length}</div><div class="ag-stat-lbl">Total</div></div>
-        <div class="ag-stat accent-yellow"><div class="ag-stat-num">${pendentes}</div><div class="ag-stat-lbl">Pendentes</div></div>
-        <div class="ag-stat accent-green"><div class="ag-stat-num">${confirmados}</div><div class="ag-stat-lbl">Confirmados</div></div>
-        <div class="ag-stat"><div class="ag-stat-num">${realizados}</div><div class="ag-stat-lbl">Realizados</div></div>
+        <div class="stat-widget"><div class="stat-widget-num text-light">${agts.length}</div><div class="stat-widget-lbl">Total</div></div>
+        <div class="stat-widget"><div class="stat-widget-num text-warning">${pendentes}</div><div class="stat-widget-lbl">Pendentes</div></div>
+        <div class="stat-widget"><div class="stat-widget-num text-success">${confirmados}</div><div class="stat-widget-lbl">Confirmados</div></div>
       `;
 
       if (!agts.length) {
         container.innerHTML = `
-          <div class="agt-empty">
-            <i class="fas fa-calendar-xmark" style="font-size:1.5rem;opacity:.3;display:block;margin-bottom:8px"></i>
-            Nenhum agendamento para este dia.<br>
-            <small style="color:var(--ag-muted)">Clique em "Novo" para adicionar.</small>
+          <div class="text-center py-5 text-muted">
+            <i class="fas fa-check-circle fa-2x mb-2 text-success" style="opacity: 0.6;"></i>
+            <p class="mb-0 small">Nenhum agendamento marcado para este dia.</p>
           </div>`;
         return;
       }
 
-      const rows = agts.map(a => `
-        <tr class="agt-row">
-          <td class="agt-hora">${a.hora}</td>
-          <td>
-            <div class="agt-nome">${a.nome_display}</div>
-            <div class="agt-sub">${a.telefone || ''}</div>
-          </td>
-          <td><div style="font-size:.78rem">${a.beneficio || '—'}</div></td>
-          <td>
-            <select class="status-select" onchange="atualizarStatus(${a.id}, this.value)">
-              <option value="pendente"   ${a.status==='pendente'   ?'selected':''}>⏳ Pendente</option>
-              <option value="confirmado" ${a.status==='confirmado' ?'selected':''}>✅ Confirmado</option>
-              <option value="realizado"  ${a.status==='realizado'  ?'selected':''}>🏁 Realizado</option>
-              <option value="cancelado"  ${a.status==='cancelado'  ?'selected':''}>❌ Cancelado</option>
+      // Renderiza cartões individuais para cada agendamento
+      container.innerHTML = agts.map(a => {
+        const telefoneSemFormatacao = a.telefone ? a.telefone.replace(/\D/g, '') : '';
+        const whatsappLink = telefoneSemFormatacao ? `https://wa.me/${telefoneSemFormatacao}` : '';
+        
+        return `
+        <div class="appt-card">
+          <div class="appt-time-header">
+            <span class="appt-time-badge"><i class="far fa-clock me-1"></i>${a.hora}</span>
+            <select class="form-select form-select-sm" style="width: 130px; background-color: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text); font-size: 0.75rem;" 
+                    onchange="atualizarStatusAgendamento(${a.id}, this.value)">
+              <option value="pendente" ${a.status === 'pendente' ? 'selected' : ''}>⏳ Pendente</option>
+              <option value="confirmado" ${a.status === 'confirmado' ? 'selected' : ''}>✅ Confirmado</option>
+              <option value="realizado" ${a.status === 'realizado' ? 'selected' : ''}>🏁 Realizado</option>
+              <option value="cancelado" ${a.status === 'cancelado' ? 'selected' : ''}>❌ Cancelado</option>
             </select>
-          </td>
-        </tr>
-      `).join('');
-
-      container.innerHTML = `
-        <table class="agt-table">
-          <thead><tr>
-            <th>Hora</th><th>Cliente</th><th>Benefício</th><th>Status</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>`;
+          </div>
+          <div class="appt-client-info">
+            <div class="appt-client-name">${a.nome_display}</div>
+            <div class="appt-client-meta d-flex justify-content-between align-items-center">
+              <span>
+                <i class="fas fa-hand-holding-dollar me-1"></i>Assunto: <strong>${a.beneficio || 'Geral'}</strong>
+              </span>
+              ${whatsappLink ? `
+                <a href="${whatsappLink}" target="_blank" class="btn btn-sm btn-outline-success p-1 py-0" style="font-size: 0.7rem;">
+                  <i class="fab fa-whatsapp me-1"></i>WhatsApp
+                </a>` : ''}
+            </div>
+            ${a.observacoes ? `<div class="mt-2 text-muted small p-2 rounded" style="background: rgba(0,0,0,0.15); border-left: 2px solid var(--ag-primary); font-style: italic;">"${a.observacoes}"</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
     })
     .catch(() => {
-      container.innerHTML = '<div class="agt-empty" style="color:var(--ag-red)">Erro ao carregar agendamentos.</div>';
+      container.innerHTML = '<div class="alert alert-danger p-2 small">Erro ao carregar detalhes do dia.</div>';
     });
 }
 
-// ── Atualizar status de agendamento ─────────────────
-function atualizarStatus(id, status) {
+// Atualiza o status de um agendamento com AJAX
+function atualizarStatusAgendamento(id, status) {
   fetch('/admin/agenda/agendamentos/' + id, {
     method: 'PATCH',
     headers: {'Content-Type': 'application/json'},
@@ -853,191 +1002,78 @@ function atualizarStatus(id, status) {
   })
   .then(r => r.json())
   .then(d => {
-    if (d.status === 'success') showToast('Status atualizado!');
-    else showToast('Erro ao atualizar.', 'error');
+    if (d.status === 'success') {
+      showToast('Status do agendamento atualizado com sucesso!');
+      if (selectedDate) {
+        carregarAgendamentosDia(selectedDate);
+      }
+      carregarTodos();
+    } else {
+      showToast('Falha ao atualizar o status.', 'error');
+    }
   });
 }
 
-// ── Toggle bloqueio do dia ────────────────────────── 
+// Bloqueia ou desbloqueia o dia selecionado
 function toggleBloqueio() {
   if (!selectedDate) return;
   if (selectedBloqueado) {
     fetch('/admin/agenda/bloquear/' + selectedDate, { method: 'DELETE' })
       .then(r => r.json())
-      .then(() => { showToast('Data desbloqueada!'); setTimeout(() => location.reload(), 800); });
+      .then(() => { 
+        showToast('Dia desbloqueado com sucesso!'); 
+        setTimeout(() => location.reload(), 800); 
+      });
   } else {
-    const motivo = prompt('Motivo do bloqueio (opcional):') || '';
+    const motivo = prompt('Motivo do bloqueio do dia (opcional):') || '';
     fetch('/admin/agenda/bloquear', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({data: selectedDate, motivo})
     }).then(r => r.json())
-      .then(() => { showToast('Data bloqueada!'); setTimeout(() => location.reload(), 800); });
+      .then(() => { 
+        showToast('Dia bloqueado com sucesso!'); 
+        setTimeout(() => location.reload(), 800); 
+      });
   }
 }
 
-// ── Modal novo agendamento ───────────────────────────
-function abrirModalNovo() {
-  if (!selectedDate) {
-    showToast('Selecione um dia no calendário primeiro.', 'error');
+// ── BLOQUEAR DATA (TAB CONFIGS) ──
+function bloquearDataPanel() {
+  const data = document.getElementById('inp-bloquear-data').value;
+  const motivo = document.getElementById('inp-bloquear-motivo').value;
+  if (!data) {
+    showToast('Informe a data a ser bloqueada!', 'error');
     return;
   }
-  const [a, m, d] = selectedDate.split('-');
-  document.getElementById('modal-data').value = `${d}/${m}/${a}`;
-  document.getElementById('modal-nome').value = '';
-  document.getElementById('modal-tel').value  = '';
-  document.getElementById('modal-ben').value  = '';
-  document.getElementById('modal-obs').value  = '';
-
-  fetch('/admin/agenda/disponibilidade/' + selectedDate)
-    .then(r => r.json())
-    .then(d => {
-      const sel = document.getElementById('modal-hora');
-      sel.innerHTML = '<option value="">Selecione o horário...</option>';
-      (d.horarios || []).forEach(h => {
-        sel.innerHTML += `<option value="${h}">${h}</option>`;
-      });
-      if (!(d.horarios || []).length) {
-        sel.innerHTML = '<option value="">Sem horários disponíveis</option>';
-      }
-    });
-
-  document.getElementById('modal-novo').classList.add('show');
-}
-
-function fecharModal() {
-  document.getElementById('modal-novo').classList.remove('show');
-}
-
-function confirmarAgendamento() {
-  const hora = document.getElementById('modal-hora').value;
-  const nome = document.getElementById('modal-nome').value.trim();
-  if (!hora) { showToast('Selecione um horário.', 'error'); return; }
-  if (!nome) { showToast('Informe o nome do cliente.', 'error'); return; }
-
-  fetch('/admin/agenda/agendar', {
+  fetch('/admin/agenda/bloquear', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      session_id:   0,
-      data:         selectedDate,
-      hora,
-      nome_cliente: nome,
-      telefone:     document.getElementById('modal-tel').value,
-      beneficio:    document.getElementById('modal-ben').value,
-    })
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.success) {
-      showToast('Agendamento criado!');
-      fecharModal();
-      carregarAgendamentosDia(selectedDate);
-      setTimeout(() => location.reload(), 1200);
-    } else {
-      showToast(d.message || 'Erro ao agendar.', 'error');
-    }
-  });
-}
-
-// ── Salvar configuração semanal ──────────────────────
-function salvarConfig() {
-  const dias = [];
-  for (let d = 0; d <= 6; d++) {
-    const chk = document.querySelector(`input[name="ativo_${d}"]`);
-    if (!chk) continue;
-    const str = document.getElementById('horarios_' + d).value || '';
-    const horarios = str.split(',').map(h => h.trim()).filter(h => /^\d{2}:\d{2}$/.test(h));
-    dias.push({
-      dia_semana: d, ativo: chk.checked, horarios,
-      max_por_dia: parseInt(document.getElementById('max_' + d).value) || 5
-    });
-  }
-  fetch('/admin/agenda/config', {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({dias})
-  })
-  .then(r => r.json())
-  .then(d => showToast(d.message || 'Salvo!', d.status === 'success' ? 'success' : 'error'));
-}
-
-function toggleDia(dia, ativo) {
-  document.getElementById('horarios_' + dia).disabled = !ativo;
-  document.getElementById('max_' + dia).disabled = !ativo;
-}
-
-// ── Bloquear / desbloquear pelo painel lateral ───────
-function bloquearData() {
-  const data   = document.getElementById('inp-bloquear-data').value;
-  const motivo = document.getElementById('inp-bloquear-motivo').value;
-  if (!data) { showToast('Informe a data.', 'error'); return; }
-  fetch('/admin/agenda/bloquear', {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({data, motivo})
   }).then(r => r.json()).then(d => {
-    showToast(d.status === 'success' ? 'Data bloqueada!' : 'Erro.', d.status);
+    showToast(d.status === 'success' ? 'Data bloqueada com sucesso!' : 'Erro ao bloquear data.', d.status);
     if (d.status === 'success') setTimeout(() => location.reload(), 800);
   });
 }
 
-function desbloquearData() {
-  const data = document.getElementById('inp-desbloquear-data').value;
-  if (!data) { showToast('Informe a data.', 'error'); return; }
-  fetch('/admin/agenda/bloquear/' + data, { method: 'DELETE' })
-    .then(r => r.json())
-    .then(() => { showToast('Data desbloqueada!'); setTimeout(() => location.reload(), 800); });
+function desbloquearDataDireto(data) {
+  if (confirm(`Deseja realmente desbloquear a data ${data}?`)) {
+    fetch('/admin/agenda/bloquear/' + data, { method: 'DELETE' })
+      .then(r => r.json())
+      .then(() => { 
+        showToast('Data desbloqueada com sucesso!'); 
+        setTimeout(() => location.reload(), 800); 
+      });
+  }
 }
 
-// ── Próximas datas ───────────────────────────────────
-function carregarProximas() {
-  fetch('/admin/agenda/proximas?qtd=5')
-    .then(r => r.json())
-    .then(d => {
-      const el = document.getElementById('proximas-datas');
-      if (!(d.datas || []).length) {
-        el.innerHTML = '<span style="color:var(--ag-muted);font-size:.78rem">Nenhuma disponível configurada.</span>';
-        return;
-      }
-      el.innerHTML = d.datas.map(dt => `
-        <div class="proxima-item" onclick="selecionarDia('${dt.data}', false)">
-          <div class="proxima-date">${dt.dia_semana_abrev} ${dt.data_br}</div>
-          <div class="proxima-slots">${dt.horarios.join('  ·  ')}</div>
-          <div class="proxima-count">${dt.horarios.length} horário(s)</div>
-        </div>`).join('');
-    });
-}
-
-// ── Copiar link ──────────────────────────────────────
-function copiarLink() {
-  const inp = document.getElementById('booking-link-input');
-  navigator.clipboard.writeText(inp.value).then(() => {
-    const msg = document.getElementById('link-copiado');
-    msg.style.display = 'block';
-    clearTimeout(msg._t);
-    msg._t = setTimeout(() => { msg.style.display = 'none'; }, 2500);
-  }).catch(() => { inp.select(); document.execCommand('copy'); });
-}
-
-// ── Toast ────────────────────────────────────────────
-function showToast(msg, type = 'success') {
-  const toast = document.getElementById('ag-toast');
-  const icon  = document.getElementById('ag-toast-icon');
-  icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-circle-exclamation';
-  icon.style.color = type === 'success' ? 'var(--ag-green)' : 'var(--ag-red)';
-  toast.style.borderLeftColor = type === 'success' ? 'var(--ag-green)' : 'var(--ag-red)';
-  document.getElementById('ag-toast-msg').textContent = msg;
-  toast.style.display = 'flex';
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => { toast.style.display = 'none'; }, 3000);
-}
-
-// ── Todos os agendamentos (tabela completa) ──────────
+// ── TODOS OS AGENDAMENTOS (TABELA COMPLETA) ──
 let _todosCache = [];
 
 function carregarTodos() {
   const container = document.getElementById('tabela-todos');
-  const stats     = document.getElementById('todos-stats');
-  container.innerHTML = '<div class="agt-empty"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>';
+  const stats = document.getElementById('todos-stats');
+  container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
 
   fetch('/admin/agenda/todos')
     .then(r => r.json())
@@ -1046,13 +1082,14 @@ function carregarTodos() {
       renderTodos(_todosCache);
     })
     .catch(() => {
-      container.innerHTML = '<div class="agt-empty" style="color:var(--ag-red)">Erro ao carregar.</div>';
+      container.innerHTML = '<div class="alert alert-danger p-2 small">Erro ao carregar lista de agendamentos.</div>';
     });
 }
 
 function filtrarTodos() {
   const statusFiltro = document.getElementById('filtro-status').value;
-  const busca        = document.getElementById('busca-todos').value.toLowerCase();
+  const busca = document.getElementById('busca-todos').value.toLowerCase();
+  
   let lista = _todosCache;
   if (statusFiltro) lista = lista.filter(a => a.status === statusFiltro);
   if (busca) lista = lista.filter(a =>
@@ -1065,81 +1102,312 @@ function filtrarTodos() {
 
 function renderTodos(lista) {
   const container = document.getElementById('tabela-todos');
-  const stats     = document.getElementById('todos-stats');
-  const all       = _todosCache;
+  const stats = document.getElementById('todos-stats');
+  const all = _todosCache;
 
   const totais = {
-    total:      all.length,
-    pendentes:  all.filter(a => a.status === 'pendente').length,
-    confirmados:all.filter(a => a.status === 'confirmado').length,
+    total: all.length,
+    pendentes: all.filter(a => a.status === 'pendente').length,
+    confirmados: all.filter(a => a.status === 'confirmado').length,
     realizados: all.filter(a => a.status === 'realizado').length,
     cancelados: all.filter(a => a.status === 'cancelado').length,
   };
 
   stats.innerHTML = `
-    <div class="ag-stat"><div class="ag-stat-num">${totais.total}</div><div class="ag-stat-lbl">Total</div></div>
-    <div class="ag-stat accent-yellow"><div class="ag-stat-num">${totais.pendentes}</div><div class="ag-stat-lbl">Pendentes</div></div>
-    <div class="ag-stat accent-green"><div class="ag-stat-num">${totais.confirmados}</div><div class="ag-stat-lbl">Confirmados</div></div>
-    <div class="ag-stat"><div class="ag-stat-num">${totais.realizados}</div><div class="ag-stat-lbl">Realizados</div></div>
-    <div class="ag-stat"><div class="ag-stat-num">${totais.cancelados}</div><div class="ag-stat-lbl">Cancelados</div></div>
+    <div class="stat-widget"><div class="stat-widget-num text-light">${totais.total}</div><div class="stat-widget-lbl">Total</div></div>
+    <div class="stat-widget"><div class="stat-widget-num text-warning">${totais.pendentes}</div><div class="stat-widget-lbl">Pendentes</div></div>
+    <div class="stat-widget"><div class="stat-widget-num text-success">${totais.confirmados}</div><div class="stat-widget-lbl">Confirmados</div></div>
+    <div class="stat-widget"><div class="stat-widget-num text-info">${totais.realizados}</div><div class="stat-widget-lbl">Realizados</div></div>
+    <div class="stat-widget"><div class="stat-widget-num text-danger">${totais.cancelados}</div><div class="stat-widget-lbl">Cancelados</div></div>
   `;
 
   if (!lista.length) {
     container.innerHTML = `
-      <div class="agt-empty">
-        <i class="fas fa-calendar-xmark" style="font-size:1.5rem;opacity:.3;display:block;margin-bottom:8px"></i>
-        Nenhum agendamento encontrado.
+      <div class="text-center py-5 text-muted">
+        <i class="fas fa-search-minus fa-3x mb-2" style="opacity: 0.3;"></i>
+        <p class="mb-0">Nenhum agendamento localizado para os critérios aplicados.</p>
       </div>`;
     return;
   }
 
-  const rows = lista.map(a => `
-    <tr class="agt-row">
+  const rows = lista.map(a => {
+    const statusBadges = {
+      'pendente': '<span class="badge bg-warning text-dark"><i class="far fa-clock me-1"></i>Pendente</span>',
+      'confirmado': '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Confirmado</span>',
+      'realizado': '<span class="badge bg-secondary"><i class="fas fa-flag-checkered me-1"></i>Realizado</span>',
+      'cancelado': '<span class="badge bg-danger"><i class="fas fa-times me-1"></i>Cancelado</span>'
+    };
+
+    return `
+    <tr class="align-middle">
+      <td class="fw-bold text-light">${a.data_br} <div style="font-size: 0.7rem;" class="text-muted">${a.dia_semana || ''}</div></td>
+      <td class="text-primary fw-bold">${a.hora}</td>
       <td>
-        <div style="font-size:.8rem;font-weight:700;color:var(--ag-text)">${a.data_br}</div>
-        <div style="font-size:.68rem;color:var(--ag-muted)">${a.dia_semana || ''}</div>
+        <div class="fw-bold text-light" style="font-size:0.88rem;">${a.nome_display}</div>
+        <small class="text-muted">${a.telefone || 'Sem telefone'}</small>
       </td>
-      <td class="agt-hora">${a.hora}</td>
+      <td><span class="badge bg-dark p-2" style="border: 1px solid var(--ag-border);">${a.beneficio || 'Geral'}</span></td>
       <td>
-        <div class="agt-nome">${a.nome_display}</div>
-        <div class="agt-sub">${a.telefone || ''}</div>
-      </td>
-      <td>
-        <div style="font-size:.78rem">${a.beneficio || '—'}</div>
-      </td>
-      <td>
-        <select class="status-select" onchange="atualizarStatus(${a.id}, this.value)">
-          <option value="pendente"   ${a.status==='pendente'   ?'selected':''}>⏳ Pendente</option>
-          <option value="confirmado" ${a.status==='confirmado' ?'selected':''}>✅ Confirmado</option>
-          <option value="realizado"  ${a.status==='realizado'  ?'selected':''}>🏁 Realizado</option>
-          <option value="cancelado"  ${a.status==='cancelado'  ?'selected':''}>❌ Cancelado</option>
+        <select class="form-select form-select-sm" style="width: 130px; background-color: var(--ag-surface); border-color: var(--ag-border); color: var(--ag-text); font-size:0.75rem;" 
+                onchange="atualizarStatusAgendamento(${a.id}, this.value)">
+          <option value="pendente" ${a.status === 'pendente' ? 'selected' : ''}>⏳ Pendente</option>
+          <option value="confirmado" ${a.status === 'confirmado' ? 'selected' : ''}>✅ Confirmado</option>
+          <option value="realizado" ${a.status === 'realizado' ? 'selected' : ''}>🏁 Realizado</option>
+          <option value="cancelado" ${a.status === 'cancelado' ? 'selected' : ''}>❌ Cancelado</option>
         </select>
       </td>
-      <td style="font-size:.7rem;color:var(--ag-muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-        ${a.observacoes || ''}
+      <td class="text-muted small" style="max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${a.observacoes || ''}">
+        ${a.observacoes || '—'}
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 
   container.innerHTML = `
-    <div style="overflow-x:auto;">
-      <table class="agt-table" style="min-width:680px;">
+    <div class="table-responsive">
+      <table class="table table-dark table-hover border-secondary mb-0" style="min-width: 750px; background: transparent;">
         <thead>
-          <tr>
-            <th>Data</th><th>Hora</th><th>Cliente</th>
-            <th>Benefício</th><th>Status</th><th>Obs.</th>
+          <tr class="text-muted small uppercase">
+            <th class="border-secondary">Data</th>
+            <th class="border-secondary">Hora</th>
+            <th class="border-secondary">Cliente</th>
+            <th class="border-secondary">Benefício</th>
+            <th class="border-secondary">Status</th>
+            <th class="border-secondary">Observações</th>
           </tr>
         </thead>
-        <tbody>${rows}</tbody>
+        <tbody>
+          ${rows}
+        </tbody>
       </table>
     </div>
-    <div style="font-size:.7rem;color:var(--ag-muted);margin-top:10px;text-align:right;">
-      ${lista.length} registro(s) exibido(s)
+    <div class="text-end text-muted small mt-2">
+      Total de ${lista.length} agendamentos exibidos.
     </div>`;
 }
 
-// Init
-carregarProximas();
-carregarTodos();
+// ── CRIAÇÃO MANUAL DE NOVO AGENDAMENTO (MODAL) ──
+function abrirModalNovoManual() {
+  // Preenche a data se houver um dia selecionado no calendário
+  if (selectedDate) {
+    document.getElementById('modal-data-input').value = selectedDate;
+    carregarHorariosDisponiveisModal(selectedDate);
+  } else {
+    document.getElementById('modal-data-input').value = '';
+    const sel = document.getElementById('modal-hora-select');
+    sel.innerHTML = '<option value="">Selecione a data primeiro...</option>';
+  }
+
+  document.getElementById('modal-nome-input').value = '';
+  document.getElementById('modal-tel-input').value = '';
+  document.getElementById('modal-ben-input').value = '';
+
+  if (!bootstrapModalInstance) {
+    bootstrapModalInstance = new bootstrap.Modal(document.getElementById('modal-novo-manual'));
+  }
+  bootstrapModalInstance.show();
+}
+
+function carregarHorariosDisponiveisModal(data) {
+  const sel = document.getElementById('modal-hora-select');
+  sel.innerHTML = '<option value="">Carregando horários...</option>';
+
+  if (!data) return;
+
+  fetch('/admin/agenda/disponibilidade/' + data)
+    .then(r => r.json())
+    .then(d => {
+      sel.innerHTML = '<option value="">Selecione o horário...</option>';
+      const hrs = d.horarios || [];
+      hrs.forEach(h => {
+        sel.innerHTML += `<option value="${h}">${h}</option>`;
+      });
+      if (hrs.length === 0) {
+        sel.innerHTML = '<option value="">Sem horários disponíveis neste dia</option>';
+      }
+    })
+    .catch(() => {
+      sel.innerHTML = '<option value="">Erro ao carregar horários</option>';
+    });
+}
+
+function confirmarAgendamentoManual() {
+  const data = document.getElementById('modal-data-input').value;
+  const hora = document.getElementById('modal-hora-select').value;
+  const nome = document.getElementById('modal-nome-input').value.trim();
+  const tel = document.getElementById('modal-tel-input').value.trim();
+  const ben = document.getElementById('modal-ben-input').value.trim();
+
+  if (!data) { showToast('Informe a data da consulta.', 'error'); return; }
+  if (!hora) { showToast('Selecione um horário disponível.', 'error'); return; }
+  if (!nome) { showToast('Preencha o nome do cliente.', 'error'); return; }
+  if (!tel) { showToast('Preencha o telefone/WhatsApp.', 'error'); return; }
+
+  fetch('/admin/agenda/agendar', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      session_id: 0,
+      data,
+      hora,
+      nome_cliente: nome,
+      telefone: tel,
+      beneficio: ben
+    })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      showToast('Agendamento cadastrado com sucesso!');
+      if (bootstrapModalInstance) {
+        bootstrapModalInstance.hide();
+      }
+      // Atualiza calendário e listas
+      if (selectedDate) {
+        carregarAgendamentosDia(selectedDate);
+      }
+      carregarTodos();
+      setTimeout(() => location.reload(), 1200);
+    } else {
+      showToast(d.message || 'Erro ao realizar agendamento.', 'error');
+    }
+  })
+  .catch(() => {
+    showToast('Falha na conexão com o servidor.', 'error');
+  });
+}
+
+// ── UTILITÁRIOS: COPIAR LINK & TOASTS ──
+function copiarLink() {
+  const inp = document.getElementById('booking-link-input');
+  navigator.clipboard.writeText(inp.value).then(() => {
+    showToast('Link copiado para a área de transferência!');
+  }).catch(() => {
+    inp.select();
+    document.execCommand('copy');
+    showToast('Link copiado!');
+  });
+}
+
+function showToast(msg, type = 'success') {
+  const toast = document.getElementById('ag-toast');
+  const icon  = document.getElementById('ag-toast-icon');
+  icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+  icon.style.color = type === 'success' ? 'var(--ag-green)' : 'var(--ag-red)';
+  toast.style.borderLeftColor = type === 'success' ? 'var(--ag-green)' : 'var(--ag-red)';
+  document.getElementById('ag-toast-msg').textContent = msg;
+  toast.style.display = 'flex';
+  
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { toast.style.display = 'none'; }, 4000);
+}
+
+// ── SISTEMA DE NOTIFICAÇÕES & ALERTAS DO SISTEMA ──
+let notifiedAppointments = new Set();
+
+function playNotificationChime() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Tom 1 (D5)
+    const osc1 = audioCtx.createOscillator();
+    const gain1 = audioCtx.createGain();
+    osc1.connect(gain1);
+    gain1.connect(audioCtx.destination);
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+    gain1.gain.setValueAtTime(0.08, audioCtx.currentTime);
+    gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+    osc1.start(audioCtx.currentTime);
+    osc1.stop(audioCtx.currentTime + 0.4);
+    
+    // Tom 2 (A5) com delay
+    setTimeout(() => {
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(880.00, audioCtx.currentTime);
+      gain2.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+      osc2.start(audioCtx.currentTime);
+      osc2.stop(audioCtx.currentTime + 0.6);
+    }, 120);
+  } catch (e) {
+    console.warn("Navegador impediu execução de áudio inicial:", e);
+  }
+}
+
+function verificarAlertasProximos() {
+  // Obtém a data de hoje no formato YYYY-MM-DD
+  const hojeObj = new Date();
+  const y = hojeObj.getFullYear();
+  const m = String(hojeObj.getMonth() + 1).padStart(2, '0');
+  const d = String(hojeObj.getDate()).padStart(2, '0');
+  const hojeStr = `${y}-${m}-${d}`;
+  
+  fetch('/admin/agenda/agendamentos-dia/' + hojeStr)
+    .then(r => r.json())
+    .then(resp => {
+      const agts = resp.agendamentos || [];
+      const agora = new Date();
+      
+      agts.forEach(a => {
+        if (a.status !== 'confirmado' && a.status !== 'pendente') return;
+        
+        const [hour, min] = a.hora.split(':');
+        const agtTime = new Date();
+        agtTime.setHours(parseInt(hour), parseInt(min), 0, 0);
+        
+        const diffMs = agtTime - agora;
+        const diffMins = Math.floor(diffMs / 60000);
+        
+        // Se a consulta for em até 15 minutos e não for no passado remoto
+        if (diffMins >= 0 && diffMins <= 15) {
+          const uniqueKey = `${a.id}_${a.status}_${a.hora}`;
+          if (!notifiedAppointments.has(uniqueKey)) {
+            notifiedAppointments.add(uniqueKey);
+            
+            // Toca aviso sonoro eletrônico limpo
+            playNotificationChime();
+            
+            // Toast popup na tela
+            showToast(`Consulta em ${diffMins} minutos: ${a.nome_display} (${a.hora})`, 'warning');
+            
+            // Desktop system notification
+            if (Notification.permission === 'granted') {
+              new Notification(`Consulta Próxima! 📅`, {
+                body: `${a.nome_display} às ${a.hora} (${a.beneficio || 'Geral'})`,
+                icon: 'https://cdn-icons-png.flaticon.com/512/3652/3652191.png'
+              });
+            }
+          }
+        }
+      });
+    });
+}
+
+function initNotificationSystem() {
+  if ('Notification' in window) {
+    if (Notification.permission === 'default') {
+      document.getElementById('btn-allow-notifications').classList.remove('d-none');
+    }
+  }
+  // Roda de 2 em 2 minutos
+  verificarAlertasProximos();
+  setInterval(verificarAlertasProximos, 120000);
+}
+
+function requestNotificationPermission() {
+  if ('Notification' in window) {
+    Notification.requestPermission().then(permission => {
+      if (permission === 'granted') {
+        playNotificationChime();
+        showToast('Notificações e chimes ativados com sucesso!');
+        document.getElementById('btn-allow-notifications').classList.add('d-none');
+      }
+    });
+  }
+}
 </script>
 {% endblock %}
