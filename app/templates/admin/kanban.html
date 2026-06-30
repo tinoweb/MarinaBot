@@ -4,230 +4,326 @@
 
 {% block extra_css %}
 <style>
-  /* ── Layout geral ─────────────────────────────────── */
+  /* ── Estilo do Kanban com Glassmorphism ─────────────────────────── */
+  body {
+    background: #0f172a;
+    color: #f1f5f9;
+  }
+
   #kanban-wrapper {
     display: flex;
-    gap: 14px;
+    gap: 16px;
     overflow-x: auto;
-    padding-bottom: 20px;
-    min-height: calc(100vh - 200px);
+    padding-bottom: 24px;
+    min-height: calc(100vh - 220px);
     align-items: flex-start;
   }
 
-  /* ── Coluna ────────────────────────────────────────── */
+  /* ── Coluna do Kanban ────────────────────────────────────────── */
   .kb-column {
-    min-width: 230px;
-    max-width: 230px;
-    background: #1e2430;
-    border-radius: 10px;
+    min-width: 280px;
+    max-width: 280px;
+    background: rgba(30, 41, 59, 0.45);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.2s, border-color 0.2s;
   }
+  
   .kb-col-header {
-    padding: 10px 12px 8px;
-    border-radius: 10px 10px 0 0;
+    padding: 14px 16px;
+    border-radius: 16px 16px 0 0;
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-weight: 600;
-    font-size: 0.78rem;
-    letter-spacing: .03em;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: .05em;
     text-transform: uppercase;
     color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   }
+  
   .kb-col-header .kb-badge {
     margin-left: auto;
-    background: rgba(255,255,255,.25);
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(4px);
     border-radius: 20px;
-    padding: 1px 8px;
-    font-size: .72rem;
+    padding: 2px 10px;
+    font-size: .75rem;
     font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
+  
   .kb-col-body {
     flex: 1;
-    padding: 8px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    min-height: 80px;
-    border-radius: 0 0 10px 10px;
+    gap: 12px;
+    min-height: 120px;
+    border-radius: 0 0 16px 16px;
     overflow-y: auto;
-    max-height: calc(100vh - 260px);
+    max-height: calc(100vh - 280px);
   }
 
   /* Drag over */
   .kb-col-body.drag-over {
-    background: rgba(255,255,255,.06);
-    outline: 2px dashed rgba(255,255,255,.3);
-    outline-offset: -4px;
+    background: rgba(255, 255, 255, 0.08);
+    outline: 2px dashed rgba(255, 255, 255, 0.25);
+    outline-offset: -6px;
   }
 
-  /* ── Card ──────────────────────────────────────────── */
+  /* ── Card do Lead ────────────────────────────────────────── */
   .kb-card {
-    background: #252d3d;
-    border-radius: 8px;
-    padding: 10px 11px;
+    background: rgba(21, 32, 54, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 14px;
     cursor: grab;
-    border-left: 3px solid transparent;
-    transition: transform .15s, box-shadow .15s;
+    border-left: 4px solid transparent;
+    transition: transform .2s, box-shadow .2s, background-color 0.2s;
     position: relative;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
+  
   .kb-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(0,0,0,.4);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    background: rgba(30, 41, 59, 0.8);
   }
-  .kb-card.dragging { opacity: .45; cursor: grabbing; }
+  
+  .kb-card.dragging { 
+    opacity: .35; 
+    cursor: grabbing; 
+    transform: scale(0.98);
+  }
 
   .kb-card-name {
     font-weight: 600;
-    font-size: .82rem;
-    color: #e2e8f0;
+    font-size: .88rem;
+    color: #f1f5f9;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 2px;
-  }
-  .kb-card-phone {
-    font-size: .70rem;
-    color: #94a3b8;
     margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
+  
+  .kb-card-phone {
+    font-size: .75rem;
+    color: #94a3b8;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  
   .kb-card-msg {
-    font-size: .70rem;
-    color: #64748b;
+    font-size: .75rem;
+    color: #cbd5e1;
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    line-height: 1.35;
+    line-height: 1.4;
+    background: rgba(0, 0, 0, 0.15);
+    padding: 6px 8px;
+    border-radius: 6px;
+    margin-bottom: 8px;
   }
+  
   .kb-card-footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 6px;
+    margin-top: 8px;
     gap: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 8px;
   }
+  
   .kb-card-time {
-    font-size: .65rem;
-    color: #475569;
+    font-size: .68rem;
+    color: #64748b;
   }
+  
   .kb-card-badge {
-    font-size: .60rem;
-    padding: 1px 6px;
+    font-size: .65rem;
+    padding: 2px 8px;
     border-radius: 20px;
     font-weight: 600;
   }
+  
   .kb-card-actions {
     display: flex;
-    gap: 4px;
+    align-items: center;
+    gap: 8px;
   }
+  
   .kb-card-actions a,
   .kb-card-actions button {
-    font-size: .65rem;
-    padding: 2px 6px;
-    border-radius: 4px;
+    font-size: .72rem;
+    padding: 4px 8px;
+    border-radius: 6px;
     border: none;
     cursor: pointer;
     color: #94a3b8;
-    background: transparent;
-    transition: color .15s, background .15s;
+    background: rgba(255, 255, 255, 0.05);
+    transition: color .2s, background .2s;
     text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
+  
   .kb-card-actions a:hover,
   .kb-card-actions button:hover {
-    color: #e2e8f0;
-    background: rgba(255,255,255,.08);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.15);
   }
 
   /* Badge qualificação */
-  .badge-qualificada  { background: #16a34a22; color: #4ade80; }
-  .badge-aguardando   { background: #ca8a0422; color: #fbbf24; }
-  .badge-descarte     { background: #dc262622; color: #f87171; }
-  .badge-pendente     { background: #33415522; color: #94a3b8; }
-  .badge-fechamento   { background: #0d948822; color: #2dd4bf; }
+  .badge-qualificada  { background: rgba(22, 163, 74, 0.2); color: #4ade80; border: 1px solid rgba(22, 163, 74, 0.4); }
+  .badge-aguardando   { background: rgba(202, 138, 4, 0.2); color: #fbbf24; border: 1px solid rgba(202, 138, 4, 0.4); }
+  .badge-descarte     { background: rgba(220, 38, 38, 0.2); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.4); }
+  .badge-pendente     { background: rgba(71, 85, 105, 0.2); color: #cbd5e1; border: 1px solid rgba(71, 85, 105, 0.4); }
+  .badge-fechamento   { background: rgba(13, 148, 136, 0.2); color: #2dd4bf; border: 1px solid rgba(13, 148, 136, 0.4); }
 
-  /* Filtros topo */
+  /* Filtros */
   #kb-search {
-    max-width: 260px;
-    background: #1e2430;
-    border: 1px solid #2d3748;
-    color: #e2e8f0;
-    border-radius: 6px;
-    padding: 5px 11px;
-    font-size: .83rem;
+    max-width: 280px;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #f1f5f9;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: .85rem;
+    transition: border-color 0.25s, box-shadow 0.25s;
   }
-  #kb-search::placeholder { color: #475569; }
-  #kb-search:focus { outline: none; border-color: #4a90e2; }
+  #kb-search::placeholder { color: #64748b; }
+  #kb-search:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
 
-  /* ── Scrollbar ─────────────────────────────────────── */
-  #kanban-wrapper::-webkit-scrollbar { height: 6px; }
-  #kanban-wrapper::-webkit-scrollbar-track { background: #12151e; }
-  #kanban-wrapper::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 3px; }
+  /* ── Scrollbar Customizada ─────────────────────────────────── */
+  #kanban-wrapper::-webkit-scrollbar { height: 8px; }
+  #kanban-wrapper::-webkit-scrollbar-track { background: #0f172a; }
+  #kanban-wrapper::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+  #kanban-wrapper::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
   .kb-col-body::-webkit-scrollbar { width: 4px; }
-  .kb-col-body::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 2px; }
+  .kb-col-body::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 2px; }
 
-  /* Tooltip IA pausada */
+  /* Indicadores */
   .ia-paused-dot {
     display: inline-block;
-    width: 7px; height: 7px;
+    width: 8px; height: 8px;
     border-radius: 50%;
-    background: #f59e0b;
-    margin-left: 4px;
+    background: #ef4444;
+    margin-left: 6px;
+    box-shadow: 0 0 8px #ef4444;
     vertical-align: middle;
-    cursor: help;
   }
+  .ia-active-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    margin-left: 6px;
+    box-shadow: 0 0 8px #10b981;
+    vertical-align: middle;
+  }
+
   .stage-info-badge {
-    font-size: .62rem;
-    padding: 1px 6px;
-    border-radius: 10px;
+    font-size: .68rem;
+    padding: 2px 8px;
+    border-radius: 12px;
     margin-left: 4px;
     font-weight: 600;
   }
-  .stage-info-value { background: #16a34a33; color: #4ade80; }
-  .stage-info-agenda { background: #7c3aed33; color: #a78bfa; }
+  .stage-info-value { background: rgba(22, 163, 74, 0.2); color: #4ade80; border: 1px solid rgba(22, 163, 74, 0.4); }
+  .stage-info-agenda { background: rgba(124, 58, 237, 0.2); color: #c084fc; border: 1px solid rgba(124, 58, 237, 0.4); }
+
+  /* ── Estilos Drawer (Offcanvas) Detalhes do Lead ───────────────── */
+  .drawer-section {
+    background: rgba(30, 41, 59, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .drawer-section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .note-item {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+
+  /* Form controls styled dark */
+  .offcanvas input, .offcanvas select, .offcanvas textarea {
+    background: rgba(15, 23, 42, 0.8) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #f1f5f9 !important;
+  }
+  .offcanvas input:focus, .offcanvas select:focus, .offcanvas textarea:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
   <div>
-    <h4 class="mb-0 fw-bold"><i class="fas fa-table-columns me-2 text-primary"></i>Kanban CRM</h4>
-    <small class="text-muted">Classificação automática de leads por benefício</small>
+    <h3 class="mb-0 fw-bold"><i class="fas fa-table-columns me-2 text-primary"></i>Kanban CRM</h3>
+    <small class="text-muted">Gestão inteligente e classificação por etapas e benefícios</small>
   </div>
   <div class="d-flex align-items-center gap-2 flex-wrap">
-    <input id="kb-search" type="text" placeholder="🔍 Buscar lead..." oninput="filterCards(this.value)">
-    <button class="btn btn-sm btn-outline-secondary" onclick="loadBoard()" title="Atualizar">
-      <i class="fas fa-rotate-right"></i>
+    <input id="kb-search" type="text" placeholder="🔍 Buscar por nome do lead..." oninput="filterCards(this.value)">
+    <button class="btn btn-primary d-flex align-items-center gap-2" onclick="loadBoard()" title="Atualizar dados">
+      <i class="fas fa-arrows-rotate"></i> Atualizar
     </button>
-    <span id="kb-last-update" class="text-muted" style="font-size:.75rem"></span>
+    <span id="kb-last-update" class="text-muted ms-2" style="font-size:.78rem"></span>
   </div>
 </div>
 
-<!-- Legenda rápida -->
-<div class="d-flex gap-2 mb-3 flex-wrap">
-  <span class="stage-info-badge stage-info-value"><i class="fas fa-dollar-sign me-1"></i>Discute valor</span>
-  <span class="stage-info-badge stage-info-agenda"><i class="fas fa-calendar me-1"></i>Só agendamento</span>
-  <span style="font-size:.72rem; color:#475569;">
-    <span class="ia-paused-dot" style="cursor:default"></span> IA pausada
+<!-- Legendas Rápidas -->
+<div class="d-flex align-items-center gap-3 mb-4 flex-wrap bg-dark bg-opacity-20 p-3 rounded-3 border border-secondary border-opacity-10">
+  <span class="text-muted fw-semibold" style="font-size: .8rem">Indicadores:</span>
+  <span class="stage-info-badge stage-info-value"><i class="fas fa-dollar-sign me-1"></i>Negociação de Valor</span>
+  <span class="stage-info-badge stage-info-agenda"><i class="fas fa-calendar-days me-1"></i>Requer Agendamento</span>
+  <span style="font-size:.78rem; color:#cbd5e1;">
+    <span class="ia-active-dot" style="margin-right:2px"></span> IA Ativa
+    <span class="ia-paused-dot" style="margin-left:12px; margin-right:2px"></span> IA Pausada
   </span>
 </div>
 
-<!-- Board -->
+<!-- Board do Kanban -->
 <div id="kanban-wrapper">
   {% for stage in stages %}
   <div class="kb-column" data-stage="{{ stage.key }}">
-    <div class="kb-col-header" style="background: {{ stage.color }}dd;">
+    <div class="kb-col-header" style="background: linear-gradient(135deg, {{ stage.color }}99, {{ stage.color }}cc);">
       <i class="fas {{ stage.icon }}"></i>
       <span>{{ stage.name }}</span>
       <span class="kb-badge" id="badge-{{ stage.key }}">
         {{ board[stage.key] | length }}
       </span>
     </div>
+    
     <div class="kb-col-body"
          id="col-{{ stage.key }}"
          ondragover="onDragOver(event)"
@@ -246,6 +342,7 @@
                   else 'Aguard. Docs' if q in ('aguardando_docs','docs_recebidos')
                   else 'Descarte'    if q.startswith('descarte')
                   else 'Em triagem' %}
+      
       <div class="kb-card"
            draggable="true"
            data-session-id="{{ card.id }}"
@@ -253,41 +350,53 @@
            data-name="{{ (card.nome or card.user_id) | lower }}"
            style="border-left-color: {{ stage.color }};"
            ondragstart="onDragStart(event)"
-           ondragend="onDragEnd(event)">
+           ondragend="onDragEnd(event)"
+           onclick="openLeadDrawer(event, '{{ card.id }}')">
 
         <div class="kb-card-name">
           {{ card.nome or 'Sem nome' }}
-          {% if card.ia_pausada %}<span class="ia-paused-dot" title="IA pausada"></span>{% endif %}
-        </div>
-        <div class="kb-card-phone">
-          {% if card.telefone %}
-            <i class="fab fa-whatsapp" style="color:#25d366"></i>
-            {{ card.telefone.replace('@c.us','').replace('@s.whatsapp.net','') }}
+          {% if card.ia_pausada %}
+            <span class="ia-paused-dot" title="IA Pausada para atendimento humano"></span>
           {% else %}
-            <i class="fas fa-user" style="color:#475569"></i> {{ card.user_id[:20] }}...
+            <span class="ia-active-dot" title="IA auto-respondendo"></span>
           {% endif %}
         </div>
+        
+        <div class="kb-card-phone">
+          {% if card.telefone %}
+            <i class="fab fa-whatsapp text-success"></i>
+            {{ card.telefone.replace('@c.us','').replace('@s.whatsapp.net','') }}
+          {% else %}
+            <i class="fas fa-user-tag text-muted"></i> {{ card.user_id[:16] }}...
+          {% endif %}
+        </div>
+        
         {% if card.last_message_short %}
-        <div class="kb-card-msg">{{ card.last_message_short }}</div>
+          <div class="kb-card-msg">{{ card.last_message_short }}</div>
         {% endif %}
+        
         <div class="kb-card-footer">
-          <span class="kb-card-time">{{ card.updated_at_str }}</span>
+          <span class="kb-card-time"><i class="far fa-clock me-1"></i>{{ card.updated_at_str }}</span>
           <span class="kb-card-badge {{ badge_cls }}">{{ q_label }}</span>
         </div>
-        <div class="kb-card-actions mt-1">
-          <a href="{{ url_for('admin.view_conversation', conversation_id=card.id) }}" title="Ver conversa">
-            <i class="fas fa-eye"></i> Ver
+        
+        <div class="kb-card-actions mt-2" onclick="event.stopPropagation()">
+          <a href="{{ url_for('admin.view_conversation', conversation_id=card.id) }}" title="Abrir chat completo">
+            <i class="fas fa-comments"></i> Chat
           </a>
+          <button onclick="toggleCardIa('{{ card.id }}', this)" class="btn-ia-toggle" title="Alternar IA Automática">
+            <i class="fas {% if card.ia_pausada %}fa-play text-success{% else %}fa-pause text-warning{% endif %}"></i> IA
+          </button>
           {% if stage.can_discuss_value %}
-            <span class="stage-info-badge stage-info-value" title="Pode discutir valor">$</span>
+            <span class="stage-info-badge stage-info-value" title="Fase de Negociação"><i class="fas fa-dollar-sign"></i></span>
           {% elif stage.requires_scheduling %}
-            <span class="stage-info-badge stage-info-agenda" title="Apenas agendamento"><i class="fas fa-calendar-check"></i></span>
+            <span class="stage-info-badge stage-info-agenda" title="Fase de Agendamento"><i class="fas fa-calendar-days"></i></span>
           {% endif %}
         </div>
       </div>
       {% else %}
-      <div style="color:#374151; font-size:.75rem; text-align:center; padding:16px 8px; pointer-events:none;">
-        Nenhum lead
+      <div class="text-center text-muted py-4" style="font-size: .8rem; pointer-events: none;">
+        Nenhum lead nesta etapa
       </div>
       {% endfor %}
     </div>
@@ -295,13 +404,112 @@
   {% endfor %}
 </div>
 
-<!-- Toast de feedback -->
+<!-- ── Offcanvas Lateral de Detalhes do Lead (CRM Completo) ───────────────── -->
+<div class="offcanvas offcanvas-end text-bg-dark" tabindex="-1" id="leadDetailsOffcanvas" aria-labelledby="leadDetailsLabel" style="width: 480px; background: rgba(15, 23, 42, 0.96); backdrop-filter: blur(20px); border-left: 1px solid rgba(255, 255, 255, 0.08);">
+  <div class="offcanvas-header border-bottom border-secondary border-opacity-20">
+    <div>
+      <h5 class="offcanvas-title fw-bold text-white" id="drawerLeadName">Carregando...</h5>
+      <small id="drawerLeadPhone" class="text-muted"></small>
+    </div>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  
+  <div class="offcanvas-body">
+    <!-- Links rápidos de Ação -->
+    <div class="d-grid gap-2 mb-4">
+      <a href="#" id="drawerChatLink" class="btn btn-outline-primary d-flex align-items-center justify-content-center gap-2">
+        <i class="fas fa-comments"></i> Abrir Chat Completo
+      </a>
+    </div>
+
+    <!-- Controle de Fluxo & IA -->
+    <div class="drawer-section">
+      <div class="drawer-section-title"><i class="fas fa-robot text-primary"></i>Automação e Controle</div>
+      
+      <!-- Toggle Switch IA -->
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" role="switch" id="drawerIaSwitch" onchange="submitDrawerIaToggle()">
+        <label class="form-check-label text-light fw-semibold" for="drawerIaSwitch">IA Auto-responder Ativa</label>
+      </div>
+
+      <!-- Select Estágio Kanban -->
+      <div class="mb-3">
+        <label class="form-label text-muted small fw-bold">Etapa Kanban</label>
+        <select class="form-select" id="drawerStageSelect" onchange="submitDrawerStageChange()">
+          {% for stage in stages %}
+            <option value="{{ stage.key }}">{{ stage.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Select Qualificação -->
+      <div class="mb-1">
+        <label class="form-label text-muted small fw-bold">Qualificação do Lead</label>
+        <select class="form-select" id="drawerQualifSelect" onchange="submitDrawerQualifChange()">
+          <option value="pendente">Em Triagem / Pendente</option>
+          <option value="qualificada">Qualificada</option>
+          <option value="aguardando_docs">Aguardando Documentação</option>
+          <option value="docs_recebidos">Documentação Recebida</option>
+          <option value="fechamento">Fechamento</option>
+          <option value="pos_venda">Pós-venda</option>
+          <option value="descarte_1">Descarte (< 16 anos / Não Elegível)</option>
+          <option value="descarte_2">Descarte (Sem Resposta / Prazo Expirado)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Notas Internas -->
+    <div class="drawer-section">
+      <div class="drawer-section-title d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-sticky-note text-warning"></i>Notas Internas</span>
+        <span class="badge bg-secondary" id="drawerNotesCount">0</span>
+      </div>
+      
+      <!-- Input de Notas -->
+      <div class="input-group mb-3">
+        <input type="text" id="drawerNoteInput" class="form-control" placeholder="Adicionar anotação...">
+        <button class="btn btn-warning" type="button" onclick="submitDrawerNote()"><i class="fas fa-plus"></i></button>
+      </div>
+
+      <!-- Lista de Notas -->
+      <div id="drawerNotesList" style="max-height: 160px; overflow-y: auto;">
+        <p class="text-muted fst-italic text-center small mb-0">Nenhuma nota interna registrada.</p>
+      </div>
+    </div>
+
+    <!-- Enviar Mensagem Rápida via WhatsApp -->
+    <div class="drawer-section">
+      <div class="drawer-section-title"><i class="fab fa-whatsapp text-success"></i>Resposta Rápida via WhatsApp</div>
+      
+      <!-- Seleção de Template -->
+      <div class="mb-3">
+        <label class="form-label text-muted small fw-bold">Modelos de Mensagem</label>
+        <div class="d-flex flex-wrap gap-2 mb-2" id="drawerTemplatesList">
+          <button class="btn btn-xs btn-outline-secondary py-1 px-2" style="font-size: 0.72rem" onclick="applyTemplate('honorarios')">💰 Honorários</button>
+          <button class="btn btn-xs btn-outline-secondary py-1 px-2" style="font-size: 0.72rem" onclick="applyTemplate('documentos')">📎 Docs Necessários</button>
+        </div>
+      </div>
+
+      <!-- Caixa de Texto e Enviar -->
+      <div class="mb-1">
+        <textarea id="drawerMsgTextarea" class="form-control mb-2" rows="3" placeholder="Digite uma resposta rápida..."></textarea>
+        <button class="btn btn-success w-100 d-flex align-items-center justify-content-center gap-2" onclick="sendDrawerWppMessage()">
+          <i class="fas fa-paper-plane"></i> Enviar Mensagem
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast de Feedback -->
 <div id="kb-toast" style="
-  position:fixed; bottom:24px; right:24px; z-index:9999;
-  background:#1e2430; color:#e2e8f0; padding:10px 18px;
-  border-radius:8px; font-size:.82rem; box-shadow:0 4px 20px rgba(0,0,0,.5);
-  display:none; align-items:center; gap:8px;
-  border-left: 3px solid #4a90e2;">
+  position:fixed; bottom:24px; right:24px; z-index:99999;
+  background:rgba(30, 41, 59, 0.95); backdrop-filter: blur(10px);
+  color:#e2e8f0; padding:12px 20px;
+  border-radius:12px; font-size:.85rem; box-shadow:0 10px 30px rgba(0,0,0,.5);
+  display:none; align-items:center; gap:10px;
+  border-left: 4px solid #3b82f6;">
   <i id="kb-toast-icon" class="fas fa-check-circle" style="color:#4ade80"></i>
   <span id="kb-toast-msg"></span>
 </div>
@@ -309,10 +517,12 @@
 
 {% block extra_js %}
 <script>
-  // ── Estado do drag ─────────────────────────────────────────────────────────
+  // ── Variáveis de Estado ───────────────────────────────────────────
   let draggedCard = null;
   let dragSourceStage = null;
+  let activeLeadId = null;
 
+  // ── Drag and Drop ─────────────────────────────────────────────────
   function onDragStart(e) {
     draggedCard = e.currentTarget;
     dragSourceStage = draggedCard.dataset.stage;
@@ -348,7 +558,7 @@
     moveCard(sessionId, targetStage);
   }
 
-  // ── Mover card via API ──────────────────────────────────────────────────────
+  // ── API - Mover Lead ──────────────────────────────────────────────
   function moveCard(sessionId, stageKey) {
     fetch('/admin/kanban/move', {
       method: 'POST',
@@ -358,16 +568,38 @@
     .then(r => r.json())
     .then(data => {
       if (data.status === 'success') {
-        showToast('Lead movido com sucesso!', 'success');
+        showToast('Lead realocado de etapa!', 'success');
         loadBoard();
       } else {
-        showToast('Erro: ' + data.message, 'error');
+        showToast('Erro ao mover lead: ' + data.message, 'error');
       }
     })
-    .catch(() => showToast('Erro de conexão', 'error'));
+    .catch(() => showToast('Erro de conexão ao servidor', 'error'));
   }
 
-  // ── Reload board via API ────────────────────────────────────────────────────
+  // ── API - Alternar IA do Card ─────────────────────────────────────
+  async function toggleCardIa(sessionId, button) {
+    try {
+      button.disabled = true;
+      const resp = await fetch(`/admin/conversas/${sessionId}/toggle-ia`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await resp.json();
+      if (data.status === 'success') {
+        showToast(data.message, 'success');
+        loadBoard();
+      } else {
+        showToast(data.message, 'error');
+      }
+    } catch(e) {
+      showToast('Erro ao alternar IA', 'error');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  // ── API - Carregar Dados do Board (Reload) ────────────────────────
   function loadBoard() {
     fetch('/admin/kanban/data')
       .then(r => r.json())
@@ -384,28 +616,28 @@
           const cards = board[stage.key] || [];
           badge.textContent = cards.length;
 
-          // Rebuilda cards
           col.innerHTML = '';
           if (cards.length === 0) {
-            col.innerHTML = '<div style="color:#374151;font-size:.75rem;text-align:center;padding:16px 8px;pointer-events:none;">Nenhum lead</div>';
+            col.innerHTML = '<div class="text-center text-muted py-4" style="font-size: .8rem; pointer-events: none;">Nenhum lead nesta etapa</div>';
             return;
           }
           cards.forEach(card => {
-            col.appendChild(buildCard(card, stage));
+            col.appendChild(buildCardElement(card, stage));
           });
         });
 
         const now = new Date();
         document.getElementById('kb-last-update').textContent =
-          'Atualizado às ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+          'Última atualização às ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
 
-        // Reaplica filtro
-        const q = document.getElementById('kb-search').value;
-        if (q) filterCards(q);
+        // Reaplica filtros de busca ativos
+        const query = document.getElementById('kb-search').value;
+        if (query) filterCards(query);
       });
   }
 
-  function buildCard(card, stage) {
+  // Helper - Montar Card HTML dinamicamente
+  function buildCardElement(card, stage) {
     const qualMap = {
       'qualificada': ['badge-qualificada', 'Qualificada'],
       'fechamento':  ['badge-fechamento',  'Fechamento'],
@@ -419,7 +651,7 @@
 
     const phone = (card.telefone || '').replace('@c.us','').replace('@s.whatsapp.net','');
     const nome = card.nome || 'Sem nome';
-    const dt = card.updated_at_str || (card.updated_at ? card.updated_at.substring(5,16).replace('T',' ') : '');
+    const dt = card.updated_at_str || '';
     const msg = (card.last_message_short || '').substring(0, 60);
 
     const el = document.createElement('div');
@@ -431,33 +663,46 @@
     el.style.borderLeftColor = stage.color;
     el.addEventListener('dragstart', onDragStart);
     el.addEventListener('dragend', onDragEnd);
+    
+    // Abrir Drawer ao clicar no card (excluindo cliques de botões internos)
+    el.addEventListener('click', (e) => {
+      openLeadDrawer(e, card.id);
+    });
 
-    const iaPaused = card.ia_pausada ? '<span class="ia-paused-dot" title="IA pausada"></span>' : '';
+    const iaIndicator = card.ia_pausada 
+      ? '<span class="ia-paused-dot" title="IA Pausada para atendimento humano"></span>' 
+      : '<span class="ia-active-dot" title="IA auto-respondendo"></span>';
+      
     const phoneHtml = phone
-      ? `<i class="fab fa-whatsapp" style="color:#25d366"></i> ${phone}`
-      : `<i class="fas fa-user" style="color:#475569"></i> ${(card.user_id||'').substring(0,20)}...`;
+      ? `<i class="fab fa-whatsapp text-success"></i> ${phone}`
+      : `<i class="fas fa-user-tag text-muted"></i> ${(card.user_id||'').substring(0,16)}...`;
+      
     const extraBadge = stage.can_discuss_value
-      ? '<span class="stage-info-badge stage-info-value" title="Pode discutir valor">$</span>'
+      ? '<span class="stage-info-badge stage-info-value" title="Fase de Negociação"><i class="fas fa-dollar-sign"></i></span>'
       : stage.requires_scheduling
-        ? '<span class="stage-info-badge stage-info-agenda" title="Apenas agendamento"><i class="fas fa-calendar-check"></i></span>'
+        ? '<span class="stage-info-badge stage-info-agenda" title="Fase de Agendamento"><i class="fas fa-calendar-days"></i></span>'
         : '';
+        
+    const playPauseIcon = card.ia_pausada ? 'fa-play text-success' : 'fa-pause text-warning';
 
     el.innerHTML = `
-      <div class="kb-card-name">${nome}${iaPaused}</div>
+      <div class="kb-card-name">${nome}${iaIndicator}</div>
       <div class="kb-card-phone">${phoneHtml}</div>
       ${msg ? `<div class="kb-card-msg">${msg}</div>` : ''}
       <div class="kb-card-footer">
-        <span class="kb-card-time">${dt}</span>
+        <span class="kb-card-time"><i class="far fa-clock me-1"></i>${dt}</span>
         <span class="kb-card-badge ${badgeCls}">${badgeLabel}</span>
       </div>
-      <div class="kb-card-actions mt-1">
-        <a href="/admin/conversas/${card.id}" title="Ver conversa"><i class="fas fa-eye"></i> Ver</a>
+      <div class="kb-card-actions mt-2" onclick="event.stopPropagation()">
+        <a href="/admin/conversas/${card.id}" title="Abrir chat completo"><i class="fas fa-comments"></i> Chat</a>
+        <button onclick="toggleCardIa('${card.id}', this)" class="btn-ia-toggle" title="Alternar IA"><i class="fas ${playPauseIcon}"></i> IA</button>
         ${extraBadge}
       </div>`;
+      
     return el;
   }
 
-  // ── Filtro de busca ────────────────────────────────────────────────────────
+  // ── Busca e Filtro de Cards ───────────────────────────────────────
   function filterCards(query) {
     const q = query.toLowerCase().trim();
     document.querySelectorAll('.kb-card').forEach(card => {
@@ -466,21 +711,239 @@
     });
   }
 
-  // ── Toast ──────────────────────────────────────────────────────────────────
+  // ── Drawer Offcanvas - Abrir e Popular Dados ──────────────────────────
+  async function openLeadDrawer(e, sessionId) {
+    // Se clicou em um link ou botão de ação rápida dentro do card, cancela abertura do drawer
+    if (e.target.closest('.kb-card-actions') || e.target.closest('a') || e.target.closest('button')) {
+      return;
+    }
+    
+    activeLeadId = sessionId;
+    
+    // Atualiza links
+    document.getElementById('drawerChatLink').href = `/admin/conversas/${sessionId}`;
+    
+    // Limpar campos enquanto busca
+    document.getElementById('drawerLeadName').textContent = 'Carregando...';
+    document.getElementById('drawerLeadPhone').textContent = '';
+    document.getElementById('drawerNoteInput').value = '';
+    document.getElementById('drawerMsgTextarea').value = '';
+    
+    // Abre a estrutura do Bootstrap Offcanvas
+    const offcanvasEl = document.getElementById('leadDetailsOffcanvas');
+    const bsOffcanvas = new bootstrap.Offcanvas(offcanvasEl);
+    bsOffcanvas.show();
+    
+    try {
+      // 1. Detalhes Básicos do Lead
+      const resDetails = await fetch(`/admin/leads/${sessionId}/details`);
+      const detailsJson = await resDetails.json();
+      if (detailsJson.status === 'success') {
+        const d = detailsJson.data;
+        document.getElementById('drawerLeadName').textContent = d.nome || 'Sem nome';
+        document.getElementById('drawerLeadPhone').textContent = d.real_phone 
+          ? `WhatsApp: ${d.real_phone.replace('@c.us','')}` 
+          : `ID: ${d.user_id}`;
+          
+        // Switches e Dropdowns
+        document.getElementById('drawerIaSwitch').checked = (d.ia_pausada === 0);
+        document.getElementById('drawerStageSelect').value = d.status || '';
+        document.getElementById('drawerQualifSelect').value = d.qualificacao || 'pendente';
+      }
+      
+      // 2. Carregar Notas Internas
+      await loadDrawerNotes();
+      
+    } catch(err) {
+      showToast('Erro ao carregar detalhes do Lead', 'error');
+    }
+  }
+
+  // ── API - Salvar Notas no Drawer ──────────────────────────────────
+  async function loadDrawerNotes() {
+    const list = document.getElementById('drawerNotesList');
+    const badge = document.getElementById('drawerNotesCount');
+    
+    try {
+      const resp = await fetch(`/admin/conversas/${activeLeadId}/notes`);
+      const data = await resp.json();
+      if (data.status === 'success') {
+        badge.textContent = data.notes.length;
+        if (data.notes.length === 0) {
+          list.innerHTML = '<p class="text-muted fst-italic text-center small mb-0">Nenhuma nota interna registrada.</p>';
+          return;
+        }
+        
+        list.innerHTML = data.notes.map(n => `
+          <div class="note-item">
+            <div class="d-flex justify-content-between align-items-start">
+              <span class="small text-white" style="white-space:pre-wrap">${n.note.replace(/</g,'&lt;')}</span>
+              <button class="btn btn-link p-0 text-danger" style="font-size:0.75rem" onclick="deleteDrawerNote(${n.id})">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            <div class="text-muted mt-1" style="font-size:0.65rem">${n.created_at}</div>
+          </div>
+        `).join('');
+      }
+    } catch (e) {
+      list.innerHTML = '<p class="text-danger small text-center">Falha ao carregar notas.</p>';
+    }
+  }
+
+  async function submitDrawerNote() {
+    const input = document.getElementById('drawerNoteInput');
+    const txt = input.value.trim();
+    if (!txt) return;
+    
+    try {
+      const r = await fetch(`/admin/conversas/${activeLeadId}/notes`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({note: txt})
+      });
+      const d = await r.json();
+      if (d.status === 'success') {
+        input.value = '';
+        await loadDrawerNotes();
+        showToast('Nota registrada!', 'success');
+      } else {
+        showToast(d.message, 'error');
+      }
+    } catch(e) {
+      showToast('Erro de rede ao salvar nota', 'error');
+    }
+  }
+
+  async function deleteDrawerNote(noteId) {
+    if (!confirm('Deseja excluir esta nota interna?')) return;
+    try {
+      const r = await fetch(`/admin/conversas/${activeLeadId}/notes/${noteId}`, { method: 'DELETE' });
+      const d = await r.json();
+      if (d.status === 'success') {
+        await loadDrawerNotes();
+        showToast('Nota excluída!', 'success');
+      }
+    } catch(e) {
+      showToast('Erro ao remover nota', 'error');
+    }
+  }
+
+  // ── API - Mudanças de status no Drawer ─────────────────────────────
+  async function submitDrawerIaToggle() {
+    try {
+      const switchEl = document.getElementById('drawerIaSwitch');
+      const resp = await fetch(`/admin/conversas/${activeLeadId}/toggle-ia`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await resp.json();
+      if (data.status === 'success') {
+        showToast(data.message, 'success');
+        loadBoard();
+      } else {
+        showToast(data.message, 'error');
+        switchEl.checked = !switchEl.checked;
+      }
+    } catch(e) {
+      showToast('Erro ao salvar configuração de IA', 'error');
+    }
+  }
+
+  async function submitDrawerStageChange() {
+    const stageKey = document.getElementById('drawerStageSelect').value;
+    try {
+      const r = await fetch('/admin/kanban/move', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({session_id: parseInt(activeLeadId), stage_key: stageKey})
+      });
+      const d = await r.json();
+      if (d.status === 'success') {
+        showToast('Lead movido de estágio!', 'success');
+        loadBoard();
+      }
+    } catch(e) {
+      showToast('Erro ao mover de estágio', 'error');
+    }
+  }
+
+  async function submitDrawerQualifChange() {
+    const value = document.getElementById('drawerQualifSelect').value;
+    try {
+      const resp = await fetch(`/admin/conversas/${activeLeadId}/qualificacao`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qualificacao: value })
+      });
+      const data = await resp.json();
+      if (data.status === 'success') {
+        showToast('Qualificação do lead atualizada!', 'success');
+        loadBoard();
+      }
+    } catch(e) {
+      showToast('Erro ao alterar qualificação', 'error');
+    }
+  }
+
+  // ── Responder via WhatsApp no Drawer ─────────────────────────────
+  function applyTemplate(type) {
+    const textarea = document.getElementById('drawerMsgTextarea');
+    if (type === 'honorarios') {
+      textarea.value = "Nossa assessoria trabalha com honorários de 30% sobre o valor do benefício, cobrados apenas em caso de êxito — sem custos antecipados para você.\n\nOu seja: você só paga se ganhar! ✅";
+    } else if (type === 'documentos') {
+      textarea.value = "Para darmos início ao processo, precisamos dos seguintes documentos:\n\n📄 *Documentos básicos:*\n• RG e CPF\n• Comprovante de residência\n• Carteira de trabalho (ou CNIS do Gov.br)\n\nFicamos no aguardo! 😊";
+    }
+    textarea.focus();
+  }
+
+  async function sendDrawerWppMessage() {
+    const textarea = document.getElementById('drawerMsgTextarea');
+    const msg = textarea.value.trim();
+    if (!msg) return;
+    
+    try {
+      const r = await fetch(`/admin/conversas/${activeLeadId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg })
+      });
+      const d = await r.json();
+      if (d.status === 'success') {
+        textarea.value = '';
+        showToast('Mensagem enviada no WhatsApp!', 'success');
+        loadBoard();
+      } else {
+        showToast('Erro: ' + d.message, 'error');
+      }
+    } catch(e) {
+      showToast('Erro ao disparar mensagem', 'error');
+    }
+  }
+
+  // ── Toast de Feedback ─────────────────────────────────────────────
   function showToast(msg, type = 'success') {
     const toast = document.getElementById('kb-toast');
     const icon = document.getElementById('kb-toast-icon');
     const msgEl = document.getElementById('kb-toast-msg');
-    icon.className = type === 'success'
-      ? 'fas fa-check-circle' : 'fas fa-circle-exclamation';
-    icon.style.color = type === 'success' ? '#4ade80' : '#f87171';
+    
+    icon.className = type === 'success' ? 'fas fa-check-circle text-success' : 'fas fa-circle-exclamation text-danger';
+    toast.style.borderLeftColor = type === 'success' ? '#10b981' : '#ef4444';
     msgEl.textContent = msg;
+    
     toast.style.display = 'flex';
     clearTimeout(toast._t);
     toast._t = setTimeout(() => { toast.style.display = 'none'; }, 3000);
   }
 
-  // ── Auto-refresh a cada 30s ────────────────────────────────────────────────
+  // ── Auto-refresh a cada 30 segundos ──────────────────────────────────
   setInterval(loadBoard, 30000);
+  
+  // Set timestamp de abertura
+  document.addEventListener('DOMContentLoaded', () => {
+    const now = new Date();
+    document.getElementById('kb-last-update').textContent =
+      'Última atualização às ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  });
 </script>
 {% endblock %}

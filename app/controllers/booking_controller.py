@@ -8,6 +8,9 @@ from flask import Blueprint, request, render_template, jsonify
 from datetime import date, timedelta
 import calendar as _cal
 
+from unicodedata import normalize
+import re
+
 booking_bp = Blueprint('booking', __name__, url_prefix='/agendar')
 
 MESES_PT = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -17,15 +20,46 @@ DIAS_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 DIAS_FULL = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira',
              'Quinta-feira', 'Sexta-feira', 'Sábado']
 
+SLUG_MAP = {
+    'aposentadoria': 'Aposentadoria',
+    'salario-maternidade': 'Salário Maternidade',
+    'auxilio-doenca': 'Auxílio Doença',
+    'pensao-por-morte': 'Pensão por Morte',
+    'bpc-loas-idoso': 'BPC/LOAS Idoso',
+    'bpc-loas-deficiente': 'BPC/LOAS Deficiente',
+    'auxilio-acidente': 'Auxílio Acidente',
+    'auxilio-reclusao': 'Auxílio Reclusão',
+}
 
-@booking_bp.route('')
-def booking_page():
-    """Página pública de agendamento estilo Calendly."""
+def decode_slug(slug: str) -> str:
+    if not slug:
+        return ''
+    slug_lower = slug.lower()
+    if slug_lower in SLUG_MAP:
+        return SLUG_MAP[slug_lower]
+    return slug.replace('-', ' ').title()
+
+
+@booking_bp.route('', defaults={'session_id': None, 'beneficio_slug': None})
+@booking_bp.route('/s/<int:session_id>', defaults={'beneficio_slug': None})
+@booking_bp.route('/s/<int:session_id>/<beneficio_slug>')
+def booking_page(session_id, beneficio_slug):
+    """Página pública de agendamento estilo Calendly com URL amigável."""
     from app.services.agenda_service import get_bloqueios, get_config_semanal
 
-    session_id = request.args.get('sessao', '')
-    beneficio   = request.args.get('beneficio', '')
-    token       = request.args.get('token', '')
+    if session_id is None:
+        try:
+            session_id = int(request.args.get('sessao') or 0) or None
+        except ValueError:
+            session_id = None
+
+    beneficio = ''
+    if beneficio_slug:
+        beneficio = decode_slug(beneficio_slug)
+    else:
+        beneficio = request.args.get('beneficio', '')
+
+    token = request.args.get('token', '')
 
     hoje = date.today()
     mes  = int(request.args.get('mes', hoje.month))
@@ -40,13 +74,10 @@ def booking_page():
     bloqueios = get_bloqueios(mes, ano)
 
     # Gera calendário (semanas × 7 dias, col 0=Dom…6=Sab)
-    # Python calendar.monthcalendar: col 0=Seg…6=Dom → precisa remapear
     cal_raw = _cal.monthcalendar(ano, mes)
 
     cal_weeks = []
     for semana in cal_raw:
-        # Python monthcalendar: 0=Seg,1=Ter,...,6=Dom → converter para 0=Dom,1=Seg,...,6=Sab
-        # Reordena: [Dom=6, Seg=0, Ter=1, Qua=2, Qui=3, Sex=4, Sab=5]
         reordenado = [semana[6], semana[0], semana[1], semana[2],
                       semana[3], semana[4], semana[5]]
         linha = []
@@ -95,7 +126,7 @@ def booking_page():
         mes_prox=mes_prox, ano_prox=ano_prox,
         dias_pt=DIAS_PT,
         hoje=str(hoje),
-        session_id=session_id,
+        session_id=session_id or '',
         beneficio=beneficio,
         token=token,
         nome_escritorio=nome_escritorio,
@@ -166,13 +197,14 @@ def _get_setting(key: str, default: str = '') -> str:
 
 
 def get_booking_url(session_id: int = None, beneficio: str = '') -> str:
-    """Gera a URL pública de agendamento para compartilhar via WhatsApp."""
-    base = os.getenv('BASE_URL', 'http://localhost:5000')
-    params = []
+    """Gera a URL pública de agendamento amigável e profissional."""
+    base = os.getenv('BASE_URL', 'https://advconnect.tech').rstrip('/')
     if session_id:
-        params.append(f'sessao={session_id}')
-    if beneficio:
-        import urllib.parse
-        params.append(f'beneficio={urllib.parse.quote(beneficio)}')
-    query = ('?' + '&'.join(params)) if params else ''
-    return f"{base}/agendar{query}"
+        if beneficio:
+            # Converte benefício em slug limpo
+            slug = normalize('NFKD', beneficio).encode('ascii', 'ignore').decode('ascii').lower()
+            slug = re.sub(r'[^a-z0-9\-]', '', slug.replace(' ', '-'))
+            slug = re.sub(r'-+', '-', slug).strip('-')
+            return f"{base}/agendar/s/{session_id}/{slug}"
+        return f"{base}/agendar/s/{session_id}"
+    return f"{base}/agendar"

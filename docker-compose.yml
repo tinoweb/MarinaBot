@@ -39,7 +39,7 @@ services:
     container_name: marina_bot_app
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "80:5000"
     environment:
       - FLASK_APP=app
       - FLASK_ENV=production
