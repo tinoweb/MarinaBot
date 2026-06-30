@@ -1,0 +1,36 @@
+		------------------------------------------------------------------------
+
+		ssh root@187.127.18.66
+		H9z0WTMBAg@MkAT5Nhg,
+
+        ------------------------------------------------------------------------
+
+        root@srv1535177:/opt/marina_bot/marina_bot# ls -l
+        total 36
+        -rw-r--r-- 1 root root  651 May  7 19:28 Dockerfile
+        -rw-r--r-- 1 root root 1807 May  7 19:28 Dockerfile.wppconnect
+        drwxr-xr-x 8 root root 4096 May  7 19:28 app
+        -rw-r--r-- 1 root root  270 May  7 19:28 docker-compose.override.yml
+        -rw-r--r-- 1 root root 1780 May  7 19:28 docker-compose.prod.yml
+        -rw-r--r-- 1 root root 1541 May  7 19:28 docker-compose.yml
+        -rwxr-xr-x 1 root root  556 May  7 19:28 entrypoint.sh
+        -rw-r--r-- 1 root root  113 May  7 19:28 requirements.txt
+        -rw-r--r-- 1 root root  126 May  7 19:28 run.py
+        root@srv1535177:/opt/marina_bot/marina_bot#
+
+        -----------------acesso ao sistema---------------------------------------
+
+        http://187.127.18.66:5000/
+
+        
+        -----------------------------admin---------------------------------------
+
+        http://187.127.18.66:5000/admin/
+
+        admin
+        senha123
+
+        ------------------------------------------------------------------------
+
+
+        

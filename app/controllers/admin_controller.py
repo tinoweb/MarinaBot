@@ -205,7 +205,37 @@ def view_conversation(conversation_id):
     except Exception as e:
         print(f"[View Conversation] Erro ao marcar como lido: {e}")
 
-    return render_template('admin/conversation_detail.html', conversation=conversation)
+    # Carrega anexos/documentos associados à conversa
+    attachments = []
+    try:
+        from app.config.database import get_db_connection
+        conn = get_db_connection()
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            "SELECT id, file_name, file_path, mime_type, file_size, created_at "
+            "FROM chat_attachments WHERE session_id = %s ORDER BY created_at DESC",
+            (conversation['id'],)
+        )
+        attachments = cur.fetchall()
+        cur.close()
+        conn.close()
+        for att in attachments:
+            if att.get('created_at'):
+                att['created_at_str'] = att['created_at'].strftime('%d/%m/%Y %H:%M')
+            size = att.get('file_size')
+            if size is not None:
+                if size < 1024:
+                    att['size_str'] = f"{size} B"
+                elif size < 1024 * 1024:
+                    att['size_str'] = f"{round(size / 1024, 1)} KB"
+                else:
+                    att['size_str'] = f"{round(size / (1024 * 1024), 1)} MB"
+            else:
+                att['size_str'] = "N/A"
+    except Exception as e:
+        print(f"[View Conversation] Erro ao carregar anexos: {e}")
+
+    return render_template('admin/conversation_detail.html', conversation=conversation, attachments=attachments)
 
 @admin_bp.route('/conversas/<conversation_id>/set-phone', methods=['POST'])
 @login_required
@@ -239,6 +269,102 @@ def set_conversation_phone(conversation_id):
             'message': f'Telefone {phone} associado com sucesso!',
             'phone': phone
         })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@admin_bp.route('/conversas/<int:conversation_id>/upload', methods=['POST'])
+@login_required
+def upload_attachment(conversation_id):
+    """Permite ao administrador enviar/anexar um arquivo manualmente para a conversa."""
+    if 'file' not in request.files:
+        return jsonify({'status': 'error', 'message': 'Nenhum arquivo enviado'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'status': 'error', 'message': 'Nome de arquivo inválido'}), 400
+    
+    try:
+        import uuid
+        import os
+        from app.config.database import get_db_connection
+        from app.models.chat_model import ChatSession
+        
+        filename = file.filename
+        # Save to static/uploads/documents/
+        upload_dir = os.path.join('app', 'static', 'uploads', 'documents')
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        unique_name = f"{uuid.uuid4().hex}_{os.path.basename(filename)}"
+        file_path = os.path.join(upload_dir, unique_name)
+        file.save(file_path)
+        
+        # Get file size
+        file_size = os.path.getsize(file_path)
+        mimetype = file.content_type
+        
+        relative_path = f"uploads/documents/{unique_name}"
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO chat_attachments (session_id, file_name, file_path, mime_type, file_size) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (conversation_id, filename, relative_path, mimetype, file_size)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        # Adiciona mensagem de sistema na conversa para registro histórico
+        conn = get_db_connection()
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT user_id FROM chat_sessions WHERE id = %s", (conversation_id,))
+        sess_row = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        if sess_row:
+            chat_session = ChatSession(sess_row['user_id'])
+            chat_session.add_message('assistant', f"📎 [Arquivo Anexado pelo Admin]: {filename}")
+            chat_session.save()
+            
+        return jsonify({'status': 'success', 'message': 'Arquivo anexado com sucesso!'})
+    except Exception as e:
+        print(f"[Upload] Erro ao anexar arquivo: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@admin_bp.route('/conversas/<int:conversation_id>/attachments/<int:attachment_id>', methods=['DELETE'])
+@login_required
+def delete_attachment(conversation_id, attachment_id):
+    """Exclui um anexo/documento associado à conversa."""
+    try:
+        import os
+        from app.config.database import get_db_connection
+        conn = get_db_connection()
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            "SELECT file_path FROM chat_attachments WHERE id = %s AND session_id = %s",
+            (attachment_id, conversation_id)
+        )
+        row = cur.fetchone()
+        if not row:
+            cur.close(); conn.close()
+            return jsonify({'status': 'error', 'message': 'Anexo não encontrado'}), 404
+            
+        file_path_rel = row['file_path']
+        cur.execute("DELETE FROM chat_attachments WHERE id = %s", (attachment_id,))
+        conn.commit()
+        cur.close(); conn.close()
+        
+        # Tenta excluir o arquivo físico
+        try:
+            full_path = os.path.join('app', 'static', file_path_rel)
+            if os.path.exists(full_path):
+                os.remove(full_path)
+        except Exception as fe:
+            print(f"[Attachment Delete] Erro ao excluir arquivo físico: {fe}")
+            
+        return jsonify({'status': 'success', 'message': 'Anexo removido!'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 

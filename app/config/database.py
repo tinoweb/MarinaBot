@@ -156,6 +156,22 @@ def init_db():
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ''')
 
+        # Anexos/Arquivos da conversa
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_attachments (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            session_id INT NOT NULL,
+            message_id VARCHAR(200) DEFAULT NULL,
+            file_name VARCHAR(255) NOT NULL,
+            file_path VARCHAR(255) NOT NULL,
+            mime_type VARCHAR(100) DEFAULT NULL,
+            file_size INT DEFAULT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
+            INDEX idx_attachment_session (session_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ''')
+
         # Follow-ups agendados manualmente
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS scheduled_followups (
@@ -268,10 +284,21 @@ def init_db():
                 'antes do contrato assinado. Responda sempre em português.'
             )
 
-        cursor.execute('''
-        INSERT IGNORE INTO ai_settings (setting_key, setting_value)
-        VALUES ('system_prompt', %s)
-        ''', (_default_prompt,))
+        # Verifica se o system_prompt existe e precisa de atualização
+        cursor.execute("SELECT setting_value FROM ai_settings WHERE setting_key = 'system_prompt' LIMIT 1")
+        _row = cursor.fetchone()
+        if not _row:
+            cursor.execute('''
+            INSERT INTO ai_settings (setting_key, setting_value)
+            VALUES ('system_prompt', %s)
+            ''', (_default_prompt,))
+        else:
+            _current_prompt = _row[0] if isinstance(_row, (tuple, list)) else _row.get('setting_value', '')
+            if not _current_prompt or "REGRAS DE QUALIFICAÇÃO OFICIAIS" not in _current_prompt:
+                cursor.execute('''
+                UPDATE ai_settings SET setting_value = %s WHERE setting_key = 'system_prompt'
+                ''', (_default_prompt,))
+                print("[Database] Updated system_prompt to include the 12 precise qualification rules!")
 
         # Configurações adicionais padrão
         defaults_extra = [

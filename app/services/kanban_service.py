@@ -50,7 +50,7 @@ STAGES = [
         'color': '#4caf50',
         'icon': 'fa-seedling',
         'can_discuss_value': True,
-        'requires_scheduling': False,
+        'requires_scheduling': True,
         'keywords': [
             'maternidade rural', 'salario maternidade rural',
             'rural', 'roca', 'agricultura', 'agricultora',

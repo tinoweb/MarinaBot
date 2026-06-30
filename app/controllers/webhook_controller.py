@@ -125,6 +125,25 @@ def _handle_incoming_message(session, message):
         message.get('text') or ''
     ).strip()
 
+    msg_type = (message.get('type') or '').lower()
+    is_media_msg = message.get('isMedia') or msg_type in ('image', 'document', 'video')
+
+    # Se for uma mensagem de mídia (imagem, documento, vídeo)
+    is_other_media = False
+    filename = message.get('filename') or ''
+    if is_media_msg and not is_audio_message(message):
+        is_other_media = True
+        if not filename:
+            mimetype = message.get('mimetype') or ''
+            ext = mimetype.split('/')[-1].split(';')[0] if mimetype else 'bin'
+            if ext == 'jpeg': ext = 'jpg'
+            import uuid
+            filename = f"documento_{uuid.uuid4().hex[:8]}.{ext}"
+        
+        # Se não tiver legenda/texto, define uma descrição amigável para a IA e histórico
+        if not text:
+            text = f"📎 [Arquivo Recebido]: {filename}"
+
     # Para mensagens de áudio (PTT/voice), não usa body como texto
     audio_transcribed = False
     if not text and is_audio_message(message):
@@ -180,6 +199,13 @@ def _handle_incoming_message(session, message):
         # 1. Salva o message_id para futuros envios de send-reply
         if message_id:
             chat_session.update_user_data('last_message_id', message_id)
+
+        # Se for mensagem de mídia, faz download e salva como anexo
+        if is_other_media:
+            try:
+                _download_and_save_webhook_media(chat_session, message, session)
+            except Exception as me:
+                print(f"[Webhook] Erro ao baixar/salvar anexo: {me}")
 
         # 2. Salva nome do contato (pushname do WhatsApp) se ainda não tiver
         sender = message.get('sender', {})
@@ -240,18 +266,42 @@ def _handle_incoming_message(session, message):
         from app.models.ai_model import _extract_data_from_user_message
         _extract_data_from_user_message(chat_session, text)
 
-        # 4. Classificação automática no Kanban (não bloqueia)
+        # 4. Registra estado antes do processamento da IA
+        from app.services.kanban_service import auto_classify_session, get_session_kanban_stage, STAGES_BY_KEY
+        _stage_antes = get_session_kanban_stage(chat_session.session_id)
+        _qualif_antes = chat_session.qualificacao
+
+        # Primeiro, classifica o estágio com base no texto de entrada (para que o contexto da IA tenha o benefício correto)
         try:
-            from app.services.kanban_service import auto_classify_session, get_session_kanban_stage, STAGES_BY_KEY
-            _stage_antes = get_session_kanban_stage(chat_session.session_id)
-            _qualificacao = chat_session.qualificacao
-            auto_classify_session(chat_session.session_id, text, _qualificacao)
+            auto_classify_session(chat_session.session_id, text, _qualif_antes)
+            _stage_atual = get_session_kanban_stage(chat_session.session_id)
+        except Exception as _ke:
+            print(f"[Webhook] Kanban pre-classify erro: {_ke}")
+            _stage_atual = _stage_antes
+
+        # 5. Gera resposta da IA (retorna None se IA estiver pausada)
+        ai_response = get_ai_response(chat_session)
+
+        if ai_response is None:
+            # IA pausada: só salva a mensagem, sem enviar resposta automática
+            chat_session.save()
+            print(f"[Webhook] IA pausada para {sender_id}. Mensagem salva sem resposta automática.")
+            return
+
+        chat_session.add_message('assistant', ai_response)
+        chat_session.save()
+
+        # 6. Classificação pós-processamento da IA (se a qualificação mudou)
+        try:
+            _qualificacao_depois = chat_session.qualificacao
+            auto_classify_session(chat_session.session_id, text, _qualificacao_depois)
             _stage_depois = get_session_kanban_stage(chat_session.session_id)
 
-            # Se mudou para um stage que requer agendamento → envia link de booking
-            if _stage_depois != _stage_antes:
-                _stage_obj = STAGES_BY_KEY.get(_stage_depois, {})
-                if _stage_obj.get('requires_scheduling'):
+            # Envia link de booking se o estágio final exigir agendamento AND estiver qualificado
+            _stage_obj = STAGES_BY_KEY.get(_stage_depois, {})
+            if _stage_obj.get('requires_scheduling') and _qualificacao_depois == 'qualificada':
+                # Envia apenas se o lead acabou de se qualificar nesta mensagem, ou se o estágio mudou
+                if _qualif_antes != 'qualificada' or _stage_depois != _stage_antes:
                     try:
                         from app.controllers.booking_controller import get_booking_url
                         _booking_url = get_booking_url(
@@ -269,19 +319,7 @@ def _handle_incoming_message(session, message):
                     except Exception as _be:
                         print(f"[Webhook] Erro ao enviar link de agendamento: {_be}")
         except Exception as _ke:
-            print(f"[Webhook] Kanban classify erro (ignorado): {_ke}")
-
-        # 5. Gera resposta da IA (retorna None se IA estiver pausada)
-        ai_response = get_ai_response(chat_session)
-
-        if ai_response is None:
-            # IA pausada: só salva a mensagem, sem enviar resposta automática
-            chat_session.save()
-            print(f"[Webhook] IA pausada para {sender_id}. Mensagem salva sem resposta automática.")
-            return
-
-        chat_session.add_message('assistant', ai_response)
-        chat_session.save()
+            print(f"[Webhook] Kanban post-classify erro (ignorado): {_ke}")
 
         # 5. Envia resposta ao cliente
         if '@lid' in sender_id and real_phone:
@@ -312,3 +350,105 @@ def _handle_incoming_message(session, message):
         print(f"[Webhook] Erro ao processar mensagem de {sender_id}: {e}")
         import traceback
         traceback.print_exc()
+
+
+def _download_and_save_webhook_media(chat_session, message, session_name):
+    """Faz download e salva o arquivo de mídia enviado pelo WhatsApp."""
+    import base64
+    import os
+    import requests
+    import uuid
+    from app.config.database import get_db_connection
+    from app.services.whatsapp_service import get_wpp_service
+
+    message_id = message.get('id') or message.get('msgId')
+    mimetype = message.get('mimetype') or ''
+    filename = message.get('filename') or message.get('caption') or ''
+    msg_type = message.get('type') or ''
+
+    # Define nome de arquivo caso esteja vazio
+    if not filename:
+        ext = ''
+        if mimetype:
+            ext = mimetype.split('/')[-1].split(';')[0]
+            if ext == 'jpeg': ext = 'jpg'
+        if not ext:
+            ext = 'bin'
+        filename = f"whatsapp_file_{uuid.uuid4().hex[:8]}.{ext}"
+
+    media_data = None
+    body = message.get('body') or ''
+
+    # 1. Decodifica se for data URI
+    if body.startswith('data:'):
+        try:
+            header, b64data = body.split(',', 1)
+            media_data = base64.b64decode(b64data)
+        except Exception as e:
+            print(f"[Webhook Media] Erro ao decodificar data URI: {e}")
+
+    # 2. Decodifica se for base64 puro
+    if not media_data and body and not body.startswith('http') and len(body) > 100:
+        try:
+            media_data = base64.b64decode(body + '==')
+        except Exception:
+            pass
+
+    # 3. Baixa se for uma URL
+    if not media_data:
+        media_url = message.get('mediaUrl') or (body if body.startswith('http') else None)
+        if media_url:
+            try:
+                resp = requests.get(media_url, timeout=30)
+                if resp.status_code == 200:
+                    media_data = resp.content
+            except Exception as e:
+                print(f"[Webhook Media] Erro ao baixar da URL: {e}")
+
+    # 4. Baixa via API do WPP Connect
+    if not media_data and message_id:
+        try:
+            wpp = get_wpp_service()
+            media_data, mime_from_api = wpp.download_media(message_id, session_name)
+        except Exception as e:
+            print(f"[Webhook Media] Erro no download da API: {e}")
+
+    if not media_data:
+        print(f"[Webhook Media] Não foi possível obter bytes da mídia {message_id}")
+        return False
+
+    try:
+        # Cria diretório de uploads
+        upload_dir = os.path.join('app', 'static', 'uploads', 'documents')
+        os.makedirs(upload_dir, exist_ok=True)
+
+        # Gera nome único
+        base, ext = os.path.splitext(filename)
+        if not ext and mimetype:
+            ext = '.' + mimetype.split('/')[-1].split(';')[0]
+            if ext == '.jpeg': ext = '.jpg'
+        
+        unique_name = f"{uuid.uuid4().hex}_{os.path.basename(filename)}"
+        file_path = os.path.join(upload_dir, unique_name)
+        
+        with open(file_path, 'wb') as f:
+            f.write(media_data)
+
+        # Registra no banco
+        relative_path = f"uploads/documents/{unique_name}"
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO chat_attachments (session_id, message_id, file_name, file_path, mime_type, file_size) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            (chat_session.session_id, message_id, filename, relative_path, mimetype, len(media_data))
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"[Webhook Media] Arquivo salvo: {filename} -> {relative_path}")
+        return True
+    except Exception as e:
+        print(f"[Webhook Media] Erro ao salvar arquivo: {e}")
+        return False
+
